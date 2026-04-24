@@ -1,0 +1,56 @@
+name: hostelcare
+description: HostelCare - Digital Hostel Complaint & Maintenance System
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  provider: ^6.1.1
+  google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
+  image_picker: ^1.0.4
+  qr_code_scanner: ^1.0.1
+  qr_flutter: ^4.1.0
+  fl_chart: ^0.65.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.0
+  intl: ^0.19.0
+  connectivity_plus: ^5.0.2
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  animate_do: ^3.1.2
+  flutter_local_notifications: ^16.3.2
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.10
+  socket_io_client: ^2.0.3+1
+  mime: ^1.0.4
+  permission_handler: ^11.1.0
+  lottie: ^2.7.0
+  flutter_staggered_animations: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#6C63FF"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icon/
+    - assets/animations/
