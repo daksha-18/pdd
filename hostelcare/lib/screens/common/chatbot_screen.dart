@@ -20,7 +20,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.initState();
     _messages.add({
       'isBot': true,
-      'text': 'Hello! 👋 I\'m HostelCare AI Assistant. I can help you with:\n\n• Troubleshooting issues\n• Filing complaints\n• Checking complaint status\n\nHow can I help you today?',
+      'text': 'Hello! 👋 I\'m HostelCare+ AI Assistant. I can help you with:\n\n• Troubleshooting issues\n• Filing complaints\n• Checking complaint status\n\nHow can I help you today?',
       'quickReplies': ['Electrical issue', 'Water problem', 'Internet down', 'Need cleaning', 'Submit complaint', 'Check status'],
     });
   }

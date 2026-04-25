@@ -27,7 +27,7 @@ class HostelCareApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           return MaterialApp(
-            title: 'HostelCare',
+            title: 'HostelCare+',
             debugShowCheckedModeBanner: false,
             themeMode: themeProvider.themeMode,
             theme: _buildLightTheme(),

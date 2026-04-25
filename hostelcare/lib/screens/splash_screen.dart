@@ -57,24 +57,36 @@ class _SplashScreenState extends State<SplashScreen> {
             FadeInDown(
               duration: const Duration(milliseconds: 800),
               child: Container(
-                width: 120, height: 120,
+                width: 140, height: 140,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 15,
+                      offset: const Offset(0, 8),
+                    )
+                  ],
                 ),
-                child: const Icon(Icons.home_repair_service_rounded, size: 60, color: Colors.white),
+                padding: const EdgeInsets.all(16),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => 
+                      const Icon(Icons.hub_rounded, size: 80, color: Color(0xFF3F37C9)),
+                ),
               ),
             ),
             const SizedBox(height: 24),
             FadeInUp(
               delay: const Duration(milliseconds: 400),
-              child: const Text('HostelCare', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5)),
+              child: const Text('HostelCare+', style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5)),
             ),
             const SizedBox(height: 8),
             FadeInUp(
               delay: const Duration(milliseconds: 600),
-              child: Text('Digital Complaint Management', style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.8), letterSpacing: 0.5)),
+              child: Text('Connected Community', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.9), letterSpacing: 1.0)),
             ),
             const SizedBox(height: 48),
             FadeIn(

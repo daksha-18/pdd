@@ -73,7 +73,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           )),
           const SizedBox(height: 20),
-          FadeIn(delay: const Duration(milliseconds: 700), child: Text('HostelCare v1.0.0', style: TextStyle(color: Colors.grey[400], fontSize: 12))),
+          FadeIn(delay: const Duration(milliseconds: 700), child: Text('HostelCare+ v1.0.0', style: TextStyle(color: Colors.grey[400], fontSize: 12))),
         ]),
       ),
     );

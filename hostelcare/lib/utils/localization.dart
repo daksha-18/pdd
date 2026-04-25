@@ -2,7 +2,7 @@
 class AppLocalizations {
   static const Map<String, Map<String, String>> _translations = {
     'en': {
-      'app_name': 'HostelCare',
+      'app_name': 'HostelCare+',
       'login': 'Sign In',
       'register': 'Create Account',
       'email': 'Email',
@@ -79,7 +79,7 @@ class AppLocalizations {
       'feedback': 'प्रतिक्रिया',
     },
     'ta': {
-      'app_name': 'HostelCare',
+      'app_name': 'HostelCare+',
       'login': 'உள்நுழைக',
       'register': 'கணக்கை உருவாக்கு',
       'submit_complaint': 'புகார் அளிக்கவும்',
@@ -90,7 +90,7 @@ class AppLocalizations {
       'logout': 'வெளியேறு',
     },
     'te': {
-      'app_name': 'HostelCare',
+      'app_name': 'HostelCare+',
       'login': 'సైన్ ఇన్',
       'register': 'ఖాతాను సృష్టించండి',
       'submit_complaint': 'ఫిర్యాదు సమర్పించండి',

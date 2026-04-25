@@ -38,7 +38,7 @@ const seed = async () => {
   });
 
   // Create sample complaints
-  await Complaint.create([
+  const sampleComplaints = [
     {
       title: 'Broken ceiling fan', description: 'The ceiling fan in my room is not working and makes noise.',
       category: 'electrical', priority: 'high', status: 'assigned', submittedBy: student1._id,
@@ -56,7 +56,11 @@ const seed = async () => {
       category: 'internet', priority: 'medium', status: 'pending', submittedBy: student1._id,
       location: { hostelBlock: 'Block A', roomNumber: '101', floor: '1' },
     },
-  ]);
+  ];
+
+  for (const complaintData of sampleComplaints) {
+    await Complaint.create(complaintData);
+  }
 
   console.log('✅ Database seeded successfully');
   console.log('Admin: admin@hostelcare.com / admin123');

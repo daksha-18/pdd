@@ -55,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                FadeInDown(child: Text('Join HostelCare', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold))),
+                FadeInDown(child: Text('Join HostelCare+', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold))),
                 const SizedBox(height: 8),
                 FadeInDown(delay: const Duration(milliseconds: 100), child: Text('Create your student account', style: TextStyle(color: Colors.grey[600]))),
                 const SizedBox(height: 32),

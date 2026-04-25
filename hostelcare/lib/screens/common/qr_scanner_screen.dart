@@ -27,7 +27,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           builder: (_) => SubmitComplaintScreen(prefilledBlock: block, prefilledRoom: room, qrScanned: true),
         ));
       } else {
-        _showError('Invalid QR code. Expected HostelCare QR format.');
+        _showError('Invalid QR code. Expected HostelCare+ QR format.');
       }
     } catch (e) {
       _showError('Could not read QR code data.');
