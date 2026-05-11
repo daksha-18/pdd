@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:animate_do/animate_do.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
 
@@ -76,19 +78,43 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('All Complaints'), centerTitle: true,
-        actions: [IconButton(icon: const Icon(Icons.filter_list), onPressed: _showFilters)],
+        title: Text('All Complaints', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: Icon(Icons.filter_list_rounded, color: theme.colorScheme.primary),
+              onPressed: _showFilters,
+            ),
+          ),
+        ],
       ),
       body: _loading
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(
             onRefresh: _load,
+            color: theme.colorScheme.primary,
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               itemCount: _complaints.length,
-              itemBuilder: (_, i) => _buildCard(_complaints[i]),
+              itemBuilder: (_, i) => FadeInUp(
+                delay: Duration(milliseconds: i * 50),
+                child: _buildCard(_complaints[i]),
+              ),
             ),
           ),
     );
@@ -118,40 +144,138 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
   }
 
   Widget _buildCard(Map<String, dynamic> c) {
-    final statusColors = {'pending': Colors.orange, 'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green, 'closed': Colors.grey};
+    final statusColors = {
+      'pending': const Color(0xFFF59E0B),
+      'assigned': const Color(0xFF3B82F6),
+      'in_progress': const Color(0xFF6366F1),
+      'resolved': const Color(0xFF10B981),
+      'closed': const Color(0xFF64748B)
+    };
     final sc = statusColors[c['status']] ?? Colors.grey;
     final cat = c['category'] ?? 'other';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(width: 40, height: 40, decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: Center(child: Text(AppConstants.categoryIcons[cat] ?? '📋', style: const TextStyle(fontSize: 20)))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(c['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(c['complaintId'] ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-          ])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-            child: Text((c['status'] ?? '').replaceAll('_', ' '), style: TextStyle(color: sc, fontSize: 11, fontWeight: FontWeight.w600))),
-        ]),
-        const SizedBox(height: 8),
-        if (c['submittedBy'] != null) Text('By: ${c['submittedBy']['name']} • ${c['submittedBy']['hostelBlock'] ?? ''} ${c['submittedBy']['roomNumber'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-        const Divider(height: 20),
-        Row(children: [
-          if (c['status'] == 'pending') Expanded(child: OutlinedButton.icon(
-            icon: const Icon(Icons.assignment_ind, size: 16),
-            label: const Text('Assign', style: TextStyle(fontSize: 13)),
-            onPressed: () => _assignComplaint(c['_id']),
-          )),
-          const SizedBox(width: 8),
-          Expanded(child: OutlinedButton.icon(
-            icon: const Icon(Icons.flag, size: 16),
-            label: Text(c['priority'] ?? 'medium', style: const TextStyle(fontSize: 13)),
-            onPressed: () => _changePriority(c['_id'], c['priority'] ?? 'medium'),
-          )),
-        ]),
-      ])),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: sc.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(AppConstants.categoryIcons[cat] ?? '📋', style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c['title'] ?? '',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        c['complaintId'] ?? '',
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sc.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    (c['status'] ?? '').toString().replaceAll('_', ' ').toUpperCase(),
+                    style: GoogleFonts.outfit(color: sc, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (c['submittedBy'] != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.person_outline_rounded, size: 14, color: isDark ? Colors.grey[400] : const Color(0xFF64748B)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${c['submittedBy']['name']} • ${c['submittedBy']['hostelBlock'] ?? ''} ${c['submittedBy']['roomNumber'] ?? ''}',
+                      style: GoogleFonts.inter(fontSize: 12, color: isDark ? Colors.grey[400] : const Color(0xFF64748B), fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(height: 32),
+            Row(
+              children: [
+                if (c['status'] == 'pending') ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.assignment_ind_rounded, size: 18),
+                      label: Text('Assign Staff', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      onPressed: () => _assignComplaint(c['_id']),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: Icon(Icons.flag_rounded, size: 18, color: {'low': Colors.green, 'medium': Colors.orange, 'high': Colors.deepOrange, 'urgent': Colors.red}[c['priority']] ?? Colors.grey),
+                    label: Text((c['priority'] ?? 'medium').toString().toUpperCase(), style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: isDark ? Colors.grey[300] : const Color(0xFF334155))),
+                    onPressed: () => _changePriority(c['_id'], c['priority'] ?? 'medium'),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(color: isDark ? Colors.white.withOpacity(0.1) : const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

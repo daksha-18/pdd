@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
 
@@ -80,99 +81,316 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
     return Scaffold(
-      body: CustomScrollView(slivers: [
-        SliverAppBar(
-          expandedHeight: 140, pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              decoration: BoxDecoration(gradient: LinearGradient(colors: [cs.primary, cs.primary.withOpacity(0.7)])),
-              child: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                const Text('My Assignments', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text('${_assignments.length} tasks', style: TextStyle(color: Colors.white.withOpacity(0.8))),
-              ]))),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 180,
+            pinned: true,
+            stretch: true,
+            backgroundColor: primary,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [primary, const Color(0xFF4F46E5)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -20, top: -20,
+                      child: Container(
+                        width: 120, height: 120,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                    ),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            FadeInDown(
+                              child: Text(
+                                'My Assignments',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            FadeInDown(
+                              delay: const Duration(milliseconds: 100),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${_assignments.length} tasks assigned to you',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(48),
+              child: Container(
+                color: Colors.transparent,
+                child: TabBar(
+                  controller: _tabCtrl,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white.withOpacity(0.6),
+                  labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+                  tabs: _tabs.map((t) => Tab(text: t)).toList(),
+                ),
+              ),
             ),
           ),
-          bottom: TabBar(controller: _tabCtrl, indicatorColor: Colors.white, labelColor: Colors.white, unselectedLabelColor: Colors.white70, tabs: _tabs.map((t) => Tab(text: t)).toList()),
-        ),
-        _loading
-          ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-          : _assignments.isEmpty
-            ? SliverFillRemaining(child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.assignment_outlined, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 12),
-                Text('No assignments', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-              ])))
-            : SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverList(delegate: SliverChildBuilderDelegate(
-                  (_, i) => FadeInUp(delay: Duration(milliseconds: i * 100), child: _buildCard(_assignments[i])),
-                  childCount: _assignments.length,
-                )),
-              ),
-      ]),
+          _loading
+            ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+            : _assignments.isEmpty
+              ? SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.assignment_turned_in_rounded, size: 80, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No assignments found',
+                          style: GoogleFonts.outfit(color: Colors.grey[500], fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'You are all caught up!',
+                          style: GoogleFonts.inter(color: Colors.grey[400], fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (_, i) => FadeInUp(
+                        delay: Duration(milliseconds: i * 50),
+                        child: _buildCard(_assignments[i]),
+                      ),
+                      childCount: _assignments.length,
+                    ),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 
   Widget _buildCard(Map<String, dynamic> c) {
-    final statusColors = {'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green};
-    final priorityColors = {'low': Colors.green, 'medium': Colors.orange, 'high': Colors.deepOrange, 'urgent': Colors.red};
+    final statusColors = {
+      'assigned': const Color(0xFF3B82F6),
+      'in_progress': const Color(0xFF6366F1),
+      'resolved': const Color(0xFF10B981)
+    };
+    final priorityColors = {
+      'low': const Color(0xFF10B981),
+      'medium': const Color(0xFFF59E0B),
+      'high': const Color(0xFFEF4444),
+      'urgent': const Color(0xFF7F1D1D)
+    };
+    
     final sc = statusColors[c['status']] ?? Colors.grey;
     final pc = priorityColors[c['priority']] ?? Colors.grey;
     final cat = c['category'] ?? 'other';
     final student = c['submittedBy'] as Map<String, dynamic>?;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(width: 44, height: 44, decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Center(child: Text(AppConstants.categoryIcons[cat] ?? '📋', style: const TextStyle(fontSize: 22)))),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(c['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-            Text(c['complaintId'] ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-          ])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: pc.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-            child: Text((c['priority'] ?? '')[0].toUpperCase() + (c['priority'] ?? '').substring(1), style: TextStyle(color: pc, fontSize: 11, fontWeight: FontWeight.w600))),
-        ]),
-        const SizedBox(height: 8),
-        Text(c['description'] ?? '', style: TextStyle(color: Colors.grey[600], fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-        if (student != null) ...[
-          const SizedBox(height: 8),
-          Row(children: [
-            Icon(Icons.person_outline, size: 14, color: Colors.grey[400]),
-            const SizedBox(width: 4),
-            Text('${student['name']} • ${student['hostelBlock'] ?? ''} ${student['roomNumber'] ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-          ]),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
         ],
-        const Divider(height: 20),
-        Row(children: [
-          if (c['status'] == 'assigned') ...[
-            Expanded(child: FilledButton.icon(
-              icon: const Icon(Icons.play_arrow, size: 18),
-              label: const Text('Start', style: TextStyle(fontSize: 13)),
-              onPressed: () => _updateStatus(c['_id'], 'in_progress'),
-            )),
-            const SizedBox(width: 8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 52, height: 52,
+                  decoration: BoxDecoration(
+                    color: sc.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(AppConstants.categoryIcons[cat] ?? '📋', style: const TextStyle(fontSize: 28)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c['title'] ?? '',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'ID: ${c['complaintId'] ?? ''}',
+                        style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: pc.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    (c['priority'] ?? '').toString().toUpperCase(),
+                    style: GoogleFonts.outfit(color: pc, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              c['description'] ?? '',
+              style: GoogleFonts.inter(
+                color: isDark ? Colors.grey[400] : const Color(0xFF475569),
+                fontSize: 14,
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (student != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_pin_rounded, size: 16, color: isDark ? Colors.indigo[300] : const Color(0xFF6366F1)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${student['name']} • ${student['hostelBlock'] ?? ''} ${student['roomNumber'] ?? ''}',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.grey[300] : const Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                if (c['status'] == 'assigned') ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: Text('Start Working', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      onPressed: () => _updateStatus(c['_id'], 'in_progress'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                if (c['status'] == 'in_progress') ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle_rounded),
+                      label: Text('Mark Resolved', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                      onPressed: () => _updateStatus(c['_id'], 'resolved'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.camera_enhance_rounded, color: isDark ? Colors.indigo[300] : const Color(0xFF6366F1)),
+                    onPressed: () => _uploadCompletionImages(c['_id']),
+                    tooltip: 'Upload Photos',
+                  ),
+                ),
+              ],
+            ),
           ],
-          if (c['status'] == 'in_progress') ...[
-            Expanded(child: FilledButton.icon(
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('Resolve', style: TextStyle(fontSize: 13)),
-              onPressed: () => _updateStatus(c['_id'], 'resolved'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.green),
-            )),
-            const SizedBox(width: 8),
-          ],
-          if (c['status'] != 'resolved') OutlinedButton.icon(
-            icon: const Icon(Icons.camera_alt, size: 16),
-            label: const Text('Photos', style: TextStyle(fontSize: 13)),
-            onPressed: () => _uploadCompletionImages(c['_id']),
-          ),
-        ]),
-      ])),
+        ),
+      ),
     );
   }
 }

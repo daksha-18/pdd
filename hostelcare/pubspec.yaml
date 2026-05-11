@@ -1,5 +1,5 @@
 name: hostelcare
-description: HostelCare - Digital Hostel Complaint & Maintenance System
+description: HostelCare+ - Connected Community System
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -16,7 +16,7 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.9
   image_picker: ^1.0.4
-  qr_code_scanner: ^1.0.1
+  mobile_scanner: ^5.1.0
   qr_flutter: ^4.1.0
   fl_chart: ^0.65.0
   shimmer: ^3.0.0
@@ -26,14 +26,17 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.8.3
   animate_do: ^3.1.2
-  flutter_local_notifications: ^16.3.2
-  firebase_core: ^2.24.2
-  firebase_messaging: ^14.7.10
+  flutter_local_notifications: ^17.2.2
+  firebase_core: ^4.7.0
+  firebase_messaging: ^16.2.0
   socket_io_client: ^2.0.3+1
   mime: ^1.0.4
   permission_handler: ^11.1.0
   lottie: ^2.7.0
   flutter_staggered_animations: ^1.1.1
+  # Windows specific dependencies
+  sqflite_common_ffi: ^2.3.0+2
+  sqlite3_flutter_libs: ^0.5.17
 
 dev_dependencies:
   flutter_test:

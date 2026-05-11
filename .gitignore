@@ -1,0 +1,23 @@
+# IntelliJ/IDE
+.idea/
+*.iml
+
+# Node.js
+backend/node_modules/
+backend/.env
+backend/firebase-service-account.json
+
+# Flutter
+hostelcare/.dart_tool/
+hostelcare/.pub-cache/
+hostelcare/.pub/
+hostelcare/build/
+hostelcare/.flutter-plugins
+hostelcare/.flutter-plugins-dependencies
+hostelcare/android/build/
+hostelcare/ios/Flutter/Generated.xcconfig
+hostelcare/ios/Flutter/flutter_export_environment.sh
+
+# Miscellaneous
+*.log
+.DS_Store

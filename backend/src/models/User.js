@@ -53,6 +53,10 @@ const userSchema = new mongoose.Schema(
       enum: ['electrical', 'plumbing', 'internet', 'cleaning', 'general'],
       default: 'general',
     },
+    isApproved: {
+      type: Boolean,
+      default: false,
+    },
     isActive: {
       type: Boolean,
       default: true,

@@ -24,8 +24,8 @@ router.post('/register', registerValidation, async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
-    // Only allow student registration publicly; admin/staff require admin creation
-    const userRole = role === 'admin' || role === 'staff' ? 'student' : role || 'student';
+    // Student and Staff require approval; Admins created via seeders are pre-approved
+    const isApproved = role === 'admin' ? true : false;
 
     const user = await User.create({
       name,
@@ -34,14 +34,16 @@ router.post('/register', registerValidation, async (req, res, next) => {
       phone,
       hostelBlock,
       roomNumber,
-      role: userRole,
+      role: role || 'student',
+      specialization: role === 'staff' ? (req.body.specialization || 'general') : 'general',
+      isApproved,
     });
 
     const token = generateToken(user._id);
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
+      message: isApproved ? 'Registration successful' : 'Registration successful. Pending admin approval.',
       data: {
         token,
         user: {
@@ -71,8 +73,11 @@ router.post('/login', loginValidation, async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    if (!user.isActive) {
-      return res.status(401).json({ success: false, message: 'Account has been deactivated' });
+    if (!user.isApproved) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Your account is pending administrator approval. Please contact support if this persists.' 
+      });
     }
 
     const isMatch = await user.comparePassword(password);

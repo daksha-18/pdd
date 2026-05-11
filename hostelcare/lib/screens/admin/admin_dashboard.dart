@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
 
@@ -32,35 +33,102 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final primary = cs.primary;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _loading
         ? const Center(child: CircularProgressIndicator())
         : RefreshIndicator(
             onRefresh: _loadData,
-            child: CustomScrollView(slivers: [
-              SliverAppBar(
-                expandedHeight: 140, pinned: true,
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Container(
-                    decoration: BoxDecoration(gradient: LinearGradient(colors: [cs.primary, cs.primary.withOpacity(0.7)])),
-                    child: SafeArea(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-                      const Text('Admin Dashboard', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text('Manage complaints & users', style: TextStyle(color: Colors.white.withOpacity(0.8))),
-                    ]))),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 200,
+                  pinned: true,
+                  stretch: true,
+                  backgroundColor: primary,
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [primary, const Color(0xFF4F46E5)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            right: -30, top: -30,
+                            child: Container(
+                              width: 150, height: 150,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                          ),
+                          SafeArea(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  FadeInDown(
+                                    child: Text(
+                                      'Admin Dashboard',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: -1,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FadeInDown(
+                                    delay: const Duration(milliseconds: 100),
+                                    child: Text(
+                                      'Manage complaints & users',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              SliverPadding(padding: const EdgeInsets.all(16), sliver: SliverList(delegate: SliverChildListDelegate([
-                FadeInUp(child: _overviewCards()),
-                const SizedBox(height: 20),
-                FadeInUp(delay: const Duration(milliseconds: 200), child: _categoryChart()),
-                const SizedBox(height: 20),
-                FadeInUp(delay: const Duration(milliseconds: 400), child: _resolutionCard()),
-                const SizedBox(height: 20),
-                FadeInUp(delay: const Duration(milliseconds: 600), child: _priorityChart()),
-              ]))),
-            ]),
+                SliverPadding(
+                  padding: const EdgeInsets.all(20),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      FadeInUp(child: _overviewCards()),
+                      const SizedBox(height: 32),
+                      FadeInUp(delay: const Duration(milliseconds: 200), child: _categoryChart()),
+                      const SizedBox(height: 24),
+                      FadeInUp(delay: const Duration(milliseconds: 400), child: _resolutionCard()),
+                      const SizedBox(height: 24),
+                      FadeInUp(delay: const Duration(milliseconds: 600), child: _priorityChart()),
+                      const SizedBox(height: 40),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
           ),
     );
   }
@@ -68,28 +136,78 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _overviewCards() {
     final o = _data?['overview'] ?? {};
     final items = [
-      {'label': 'Total', 'value': '${o['totalComplaints'] ?? 0}', 'icon': Icons.receipt_long, 'color': Colors.blue},
-      {'label': 'Pending', 'value': '${o['pending'] ?? 0}', 'icon': Icons.hourglass_empty, 'color': Colors.orange},
-      {'label': 'Active', 'value': '${(o['assigned'] ?? 0) + (o['inProgress'] ?? 0)}', 'icon': Icons.engineering, 'color': Colors.indigo},
-      {'label': 'Resolved', 'value': '${o['resolved'] ?? 0}', 'icon': Icons.check_circle, 'color': Colors.green},
+      {'label': 'Total', 'value': '${o['totalComplaints'] ?? 0}', 'icon': Icons.receipt_long_rounded, 'color': const Color(0xFF6366F1)},
+      {'label': 'Pending', 'value': '${o['pending'] ?? 0}', 'icon': Icons.hourglass_empty_rounded, 'color': const Color(0xFFF59E0B)},
+      {'label': 'Active', 'value': '${(o['assigned'] ?? 0) + (o['inProgress'] ?? 0)}', 'icon': Icons.engineering_rounded, 'color': const Color(0xFF3B82F6)},
+      {'label': 'Resolved', 'value': '${o['resolved'] ?? 0}', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
     ];
-    return GridView.count(
-      crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.5,
-      children: items.map((item) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [(item['color'] as Color).withOpacity(0.15), (item['color'] as Color).withOpacity(0.05)]),
-          borderRadius: BorderRadius.circular(16), border: Border.all(color: (item['color'] as Color).withOpacity(0.2)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Icon(item['icon'] as IconData, color: item['color'] as Color, size: 28),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(item['value'] as String, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: item['color'] as Color)),
-            Text(item['label'] as String, style: TextStyle(color: (item['color'] as Color).withOpacity(0.8), fontSize: 13)),
-          ]),
-        ]),
-      )).toList(),
+
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 1.4,
+      ),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final color = item['color'] as Color;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? color.withOpacity(0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withOpacity(0.1)),
+            boxShadow: isDark ? [] : [
+              BoxShadow(
+                color: color.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(item['icon'] as IconData, color: color, size: 20),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item['value'] as String,
+                    style: GoogleFonts.outfit(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? color : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    item['label'] as String,
+                    style: GoogleFonts.inter(
+                      color: isDark ? color.withOpacity(0.8) : const Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

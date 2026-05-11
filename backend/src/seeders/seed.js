@@ -14,27 +14,27 @@ const seed = async () => {
   // Create admin
   const admin = await User.create({
     name: 'Admin User', email: 'admin@hostelcare.com', password: 'admin123',
-    role: 'admin', phone: '9876543210',
+    role: 'admin', phone: '9876543210', isApproved: true,
   });
 
   // Create staff
   const staff1 = await User.create({
     name: 'Rajesh Kumar', email: 'rajesh@hostelcare.com', password: 'staff123',
-    role: 'staff', phone: '9876543211', specialization: 'electrical',
+    role: 'staff', phone: '9876543211', specialization: 'electrical', isApproved: true,
   });
   const staff2 = await User.create({
     name: 'Suresh Patel', email: 'suresh@hostelcare.com', password: 'staff123',
-    role: 'staff', phone: '9876543212', specialization: 'plumbing',
+    role: 'staff', phone: '9876543212', specialization: 'plumbing', isApproved: true,
   });
 
   // Create students
   const student1 = await User.create({
     name: 'Amit Sharma', email: 'amit@student.com', password: 'student123',
-    role: 'student', hostelBlock: 'Block A', roomNumber: '101',
+    role: 'student', hostelBlock: 'Block A', roomNumber: '101', isApproved: true,
   });
   const student2 = await User.create({
     name: 'Priya Singh', email: 'priya@student.com', password: 'student123',
-    role: 'student', hostelBlock: 'Block B', roomNumber: '205',
+    role: 'student', hostelBlock: 'Block B', roomNumber: '205', isApproved: true,
   });
 
   // Create sample complaints

@@ -30,14 +30,20 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> register(String name, String email, String password, {String? phone, String? hostelBlock, String? roomNumber}) async {
+  Future<bool> register(String name, String email, String password, {String? phone, String? hostelBlock, String? roomNumber, String? role, String? specialization}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
     try {
       final res = await ApiService.post('${ApiConstants.auth}/register', {
-        'name': name, 'email': email, 'password': password,
-        'phone': phone, 'hostelBlock': hostelBlock, 'roomNumber': roomNumber,
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone': phone,
+        'hostelBlock': hostelBlock,
+        'roomNumber': roomNumber,
+        'role': role ?? 'student',
+        'specialization': specialization ?? 'general',
       });
       await _handleAuthResponse(res);
       return true;

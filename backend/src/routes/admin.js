@@ -11,7 +11,7 @@ router.use(protect, authorize('admin'));
 router.get('/users', async (req, res, next) => {
   try {
     const { role, search, page = 1, limit = 20 } = req.query;
-    const filter = {};
+    const filter = { isActive: { $ne: false } };
     if (role) filter.role = role;
     if (search) {
       filter.$or = [
@@ -37,6 +37,15 @@ router.post('/users', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+// PUT /api/admin/users/:id/approve
+router.put('/users/:id/approve', async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, { isApproved: true }, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, message: 'User approved successfully', data: user });
+  } catch (error) { next(error); }
+});
+
 // PUT /api/admin/users/:id
 router.put('/users/:id', async (req, res, next) => {
   try {
@@ -51,6 +60,16 @@ router.delete('/users/:id', async (req, res, next) => {
   try {
     await User.findByIdAndUpdate(req.params.id, { isActive: false });
     res.json({ success: true, message: 'User deactivated' });
+  } catch (error) { next(error); }
+});
+
+// DELETE /api/admin/users/:id/reject (hard delete for pending users)
+router.delete('/users/:id/reject', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'User application rejected' });
   } catch (error) { next(error); }
 });
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../student/submit_complaint_screen.dart';
 
 /// QR Scanner screen for auto-filling location in complaints
-/// Uses mobile_scanner or qr_code_scanner package
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
   @override
@@ -12,6 +12,7 @@ class QRScannerScreen extends StatefulWidget {
 class _QRScannerScreenState extends State<QRScannerScreen> {
   bool _scanned = false;
   String _status = 'Point camera at QR code on hostel room/area';
+  final MobileScannerController controller = MobileScannerController();
 
   void _handleQRData(String data) {
     if (_scanned) return;
@@ -35,55 +36,114 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   }
 
   void _showError(String msg) {
-    setState(() { _status = msg; _scanned = false; });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    setState(() {
+      _status = msg;
+      _scanned = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: Colors.red,
+      behavior: SnackBarBehavior.floating,
+    ));
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan QR Code'), centerTitle: true),
-      body: Column(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        title: const Text('Scan QR Code', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: ValueListenableBuilder(
+              valueListenable: controller.torchState,
+              builder: (context, state, child) {
+                switch (state) {
+                  case TorchState.off:
+                    return const Icon(Icons.flash_off, color: Colors.grey);
+                  case TorchState.on:
+                    return const Icon(Icons.flash_on, color: Colors.yellow);
+                }
+              },
+            ),
+            onPressed: () => controller.toggleTorch(),
+          ),
+          IconButton(
+            icon: ValueListenableBuilder(
+              valueListenable: controller.cameraFacingState,
+              builder: (context, state, child) {
+                switch (state) {
+                  case CameraFacing.front:
+                    return const Icon(Icons.camera_front, color: Colors.white);
+                  case CameraFacing.back:
+                    return const Icon(Icons.camera_rear, color: Colors.white);
+                }
+              },
+            ),
+            onPressed: () => controller.switchCamera(),
+          ),
+        ],
+      ),
+      body: Stack(
         children: [
-          Expanded(
-            flex: 3,
+          MobileScanner(
+            controller: controller,
+            onDetect: (capture) {
+              final List<Barcode> barcodes = capture.barcodes;
+              for (final barcode in barcodes) {
+                if (barcode.rawValue != null) {
+                  _handleQRData(barcode.rawValue!);
+                }
+              }
+            },
+          ),
+          // Scanner Overlay
+          Center(
             child: Container(
-              color: Colors.black,
-              child: Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(Icons.qr_code_scanner, size: 120, color: cs.primary.withOpacity(0.5)),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
-                    child: const Text(
-                      'Camera preview will appear here\nwhen QR scanner package is configured',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ]),
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                border: Border.all(color: cs.primary, width: 2),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              child: Column(children: [
-                Icon(Icons.qr_code_2, size: 32, color: cs.primary),
-                const SizedBox(height: 8),
-                Text(_status, style: TextStyle(color: Colors.grey[600], fontSize: 14), textAlign: TextAlign.center),
-                const SizedBox(height: 12),
+          Positioned(
+            bottom: 40,
+            left: 20,
+            right: 20,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    _status,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 20),
                 // Demo button for testing without camera
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.bug_report, size: 18),
-                  label: const Text('Demo: Simulate Scan'),
+                TextButton.icon(
+                  icon: const Icon(Icons.bug_report, size: 18, color: Colors.white70),
+                  label: const Text('Simulate Scan (Demo)', style: TextStyle(color: Colors.white70)),
                   onPressed: () => _handleQRData('HOSTELCARE:Block A:101:1'),
                 ),
-              ]),
+              ],
             ),
           ),
         ],

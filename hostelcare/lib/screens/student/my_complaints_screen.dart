@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:animate_do/animate_do.dart';
 import '../../providers/complaint_provider.dart';
-import '../../utils/constants.dart';
 import 'complaint_detail_screen.dart';
 
 class MyComplaintsScreen extends StatefulWidget {
@@ -10,7 +11,8 @@ class MyComplaintsScreen extends StatefulWidget {
   State<MyComplaintsScreen> createState() => _MyComplaintsScreenState();
 }
 
-class _MyComplaintsScreenState extends State<MyComplaintsScreen> with SingleTickerProviderStateMixin {
+class _MyComplaintsScreenState extends State<MyComplaintsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   final _tabs = ['All', 'Pending', 'Assigned', 'In Progress', 'Resolved'];
   final _filters = [null, 'pending', 'assigned', 'in_progress', 'resolved'];
@@ -19,41 +21,102 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> with SingleTick
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: _tabs.length, vsync: this);
-    _tabCtrl.addListener(() { if (!_tabCtrl.indexIsChanging) _load(); });
+    _tabCtrl.addListener(() {
+      if (!_tabCtrl.indexIsChanging) _load();
+    });
     Future.microtask(() => _load());
   }
 
   void _load() {
-    context.read<ComplaintProvider>().fetchComplaints(status: _filters[_tabCtrl.index]);
+    context
+        .read<ComplaintProvider>()
+        .fetchComplaints(status: _filters[_tabCtrl.index]);
   }
 
   @override
-  void dispose() { _tabCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('My Complaints'),
+        title: Text('My Complaints', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        bottom: TabBar(controller: _tabCtrl, isScrollable: true, tabs: _tabs.map((t) => Tab(text: t)).toList()),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabCtrl,
+            isScrollable: true,
+            indicatorColor: primary,
+            indicatorWeight: 3,
+            labelColor: primary,
+            unselectedLabelColor: isDark ? Colors.grey[500] : const Color(0xFF64748B),
+            labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500),
+            tabs: _tabs.map((t) => Tab(text: t)).toList(),
+          ),
+        ),
       ),
       body: Consumer<ComplaintProvider>(
         builder: (_, provider, __) {
-          if (provider.isLoading) return const Center(child: CircularProgressIndicator());
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
           if (provider.complaints.isEmpty) {
-            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
-              const SizedBox(height: 12),
-              Text('No complaints found', style: TextStyle(color: Colors.grey[500], fontSize: 16)),
-            ]));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FadeInDown(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.inbox_rounded, size: 64, color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeInUp(
+                    child: Text(
+                      'No complaints found',
+                      style: GoogleFonts.outfit(color: isDark ? Colors.grey[400] : const Color(0xFF64748B), fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 100),
+                    child: Text(
+                      'Any issues you report will appear here.',
+                      style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
           return RefreshIndicator(
-            onRefresh: () => provider.fetchComplaints(status: _filters[_tabCtrl.index]),
+            onRefresh: () async => provider.fetchComplaints(status: _filters[_tabCtrl.index]),
+            color: primary,
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               itemCount: provider.complaints.length,
-              itemBuilder: (_, i) => _buildCard(provider.complaints[i]),
+              itemBuilder: (_, i) => FadeInUp(
+                delay: Duration(milliseconds: i * 50),
+                child: _buildCard(provider.complaints[i]),
+              ),
             ),
           );
         },
@@ -61,37 +124,104 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> with SingleTick
     );
   }
 
-  Widget _buildCard(complaint) {
-    final statusColors = {'pending': Colors.orange, 'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green, 'closed': Colors.grey};
-    final priorityColors = {'low': Colors.green, 'medium': Colors.orange, 'high': Colors.deepOrange, 'urgent': Colors.red};
+  Widget _buildCard(dynamic complaint) {
+    final statusColors = {
+      'pending': const Color(0xFFF59E0B),
+      'assigned': const Color(0xFF3B82F6),
+      'in_progress': const Color(0xFF6366F1),
+      'resolved': const Color(0xFF10B981),
+      'closed': const Color(0xFF64748B)
+    };
+    final priorityColors = {
+      'low': const Color(0xFF10B981),
+      'medium': const Color(0xFFF59E0B),
+      'high': const Color(0xFFF97316),
+      'urgent': const Color(0xFFEF4444)
+    };
     final sc = statusColors[complaint.status] ?? Colors.grey;
     final pc = priorityColors[complaint.priority] ?? Colors.grey;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ComplaintDetailScreen(complaintId: complaint.id))),
+        borderRadius: BorderRadius.circular(24),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ComplaintDetailScreen(complaintId: complaint.id)),
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Container(width: 44, height: 44, decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: Center(child: Text(complaint.categoryIcon, style: const TextStyle(fontSize: 22)))),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(complaint.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(complaint.complaintId ?? '', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-              ])),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              _chip(complaint.statusLabel, sc),
-              const SizedBox(width: 8),
-              _chip(complaint.priority[0].toUpperCase() + complaint.priority.substring(1), pc),
-              const Spacer(),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey[400]),
-            ]),
-          ]),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      color: sc.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Center(
+                      child: Text(complaint.categoryIcon, style: const TextStyle(fontSize: 24)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          complaint.title,
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          complaint.complaintId ?? '',
+                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _chip(complaint.statusLabel, sc),
+                  const SizedBox(width: 8),
+                  _chip(complaint.priority[0].toUpperCase() + complaint.priority.substring(1), pc),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF8FAFC),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.chevron_right_rounded, size: 18, color: isDark ? Colors.grey[600] : const Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -100,8 +230,12 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> with SingleTick
   Widget _chip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8)),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }
