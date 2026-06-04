@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 class ApiConstants {
   // Set this to true when deploying to production
-  static const bool isProduction = false;
+  static const bool isProduction = true;
   static const String prodUrl = 'https://hostelcare-backend.onrender.com/api';
 
   // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/Windows/Web

@@ -70,7 +70,7 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
     try {
       await ApiService.multipartPost(
         '${ApiConstants.staff}/assignments/$id/completion-images',
-        files: images.map((x) => File(x.path)).toList(),
+        files: images,
       );
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Images uploaded!'), backgroundColor: Colors.green));
       _load();
