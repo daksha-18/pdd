@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -30,7 +31,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   final _floorCtrl = TextEditingController();
   String _category = 'electrical';
   String _priority = 'medium';
-  final List<File> _images = [];
+  final List<XFile> _images = [];
 
   @override
   void initState() {
@@ -74,7 +75,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     if (source == null) return;
     final picked = await picker.pickImage(
         source: source, imageQuality: 80, maxWidth: 1024);
-    if (picked != null) setState(() => _images.add(File(picked.path)));
+    if (picked != null) setState(() => _images.add(picked));
   }
 
   Future<void> _submit() async {
@@ -368,8 +369,13 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                          image: FileImage(e.value), fit: BoxFit.cover)),
+                      border: Border.all(color: Colors.grey.withOpacity(0.3))),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb
+                        ? Image.network(e.value.path, fit: BoxFit.cover)
+                        : Image.file(File(e.value.path), fit: BoxFit.cover),
+                  ),
                 ),
                 Positioned(
                     top: 4,

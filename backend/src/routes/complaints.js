@@ -16,10 +16,13 @@ router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
     const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
 
     const images = req.files
-      ? req.files.map((file) => ({
-          url: file.path,
-          publicId: file.filename,
-        }))
+      ? req.files.map((file) => {
+          const isCloudinary = file.path && (file.path.startsWith('http://') || file.path.startsWith('https://'));
+          return {
+            url: isCloudinary ? file.path : `${req.protocol}://${req.get('host')}/uploads/${file.filename}`,
+            publicId: file.filename,
+          };
+        })
       : [];
 
     const complaint = await Complaint.create({

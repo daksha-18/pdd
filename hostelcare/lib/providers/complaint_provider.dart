@@ -6,6 +6,8 @@ import '../models/complaint_model.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
 
+import 'package:image_picker/image_picker.dart' show XFile;
+
 class ComplaintProvider extends ChangeNotifier {
   List<ComplaintModel> _complaints = [];
   ComplaintModel? _selectedComplaint;
@@ -59,7 +61,7 @@ class ComplaintProvider extends ChangeNotifier {
     required String roomNumber,
     String? floor,
     String priority = 'medium',
-    List<File>? images,
+    List<XFile>? images,
     bool qrScanned = false,
   }) async {
     _isLoading = true;

@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart' show XFile;
+
 class ApiService {
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -51,7 +54,7 @@ class ApiService {
   static Future<Map<String, dynamic>> multipartPost(
     String url, {
     Map<String, String>? fields,
-    List<File>? files,
+    List<XFile>? files,
     String fileField = 'images',
   }) async {
     final token = await _getToken();
@@ -60,7 +63,16 @@ class ApiService {
     if (fields != null) request.fields.addAll(fields);
     if (files != null) {
       for (final file in files) {
-        request.files.add(await http.MultipartFile.fromPath(fileField, file.path));
+        if (kIsWeb) {
+          final bytes = await file.readAsBytes();
+          request.files.add(http.MultipartFile.fromBytes(
+            fileField,
+            bytes,
+            filename: file.name,
+          ));
+        } else {
+          request.files.add(await http.MultipartFile.fromPath(fileField, file.path));
+        }
       }
     }
     final streamedResponse = await request.send();

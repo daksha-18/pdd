@@ -142,12 +142,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       {'label': 'Resolved', 'value': '${o['resolved'] ?? 0}', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
     ];
 
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
+    final childAspectRatio = width > 900 ? 1.8 : (width > 600 ? 1.5 : 1.3);
+
     return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        childAspectRatio: 1.4,
+        childAspectRatio: childAspectRatio,
       ),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
