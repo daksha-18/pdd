@@ -30,7 +30,6 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final primary = cs.primary;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

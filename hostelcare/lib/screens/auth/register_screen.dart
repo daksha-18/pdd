@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
-import '../../screens/student/student_home.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -147,7 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   FadeInUp(
                     delay: const Duration(milliseconds: 500),
                     child: DropdownButtonFormField<String>(
-                      value: _selectedSpecialization,
+                      initialValue: _selectedSpecialization,
                       decoration: const InputDecoration(
                         labelText: 'Staff Specialization',
                         prefixIcon: Icon(Icons.build_outlined),

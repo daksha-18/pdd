@@ -125,11 +125,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                             });
                             Navigator.pop(ctx);
                             _load();
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                     content: Text('User created!'),
                                     backgroundColor: Colors.green));
                           } catch (e) {
+                            if (!mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                 content: Text('$e'),
                                 backgroundColor: Colors.red));
@@ -309,8 +311,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
     try {
       await ApiService.put('${ApiConstants.admin}/users/${u['_id']}/approve', {});
       _load();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User approved!'), backgroundColor: Colors.green));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
     }
   }
@@ -331,8 +335,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
       try {
         await ApiService.delete('${ApiConstants.admin}/users/${u['_id']}/reject');
         _load();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User rejected!'), backgroundColor: Colors.red));
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
       }
     }
@@ -354,8 +360,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
       try {
         await ApiService.delete('${ApiConstants.admin}/users/${u['_id']}');
         _load();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User deactivated!'), backgroundColor: Colors.green));
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
       }
     }

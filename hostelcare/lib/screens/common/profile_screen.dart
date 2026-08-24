@@ -139,7 +139,7 @@ class ProfileScreen extends StatelessWidget {
                   title: Text('Dark Mode', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
                   trailing: Switch.adaptive(
                     value: theme.isDark,
-                    activeColor: primary,
+                    activeTrackColor: primary,
                     onChanged: (_) => theme.toggleTheme(),
                   ),
                 ),

@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       onTap: () => setState(() => _selectedRole = role),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 400),
-        curve: Curves.elasticOut,
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
         decoration: BoxDecoration(
           color: isSelected 

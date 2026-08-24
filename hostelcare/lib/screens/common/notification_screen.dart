@@ -13,7 +13,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<NotificationProvider>().fetchNotifications());
+    Future.microtask(() { if (mounted) context.read<NotificationProvider>().fetchNotifications(); });
   }
 
   @override

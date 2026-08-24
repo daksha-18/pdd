@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/complaint_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../../utils/constants.dart';
 import '../common/notification_screen.dart';
 import 'complaint_detail_screen.dart';
 
@@ -19,7 +18,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<ComplaintProvider>().fetchComplaints());
+    Future.microtask(() {
+      if (mounted) {
+        context.read<ComplaintProvider>().fetchComplaints();
+      }
+    });
   }
 
   @override

@@ -2,16 +2,24 @@ import 'package:flutter/foundation.dart';
 
 class ApiConstants {
   // Set this to true when deploying to production
-  static const bool isProduction = true;
-  static const String prodUrl = 'https://pdd-1-n2am.onrender.com/api';
+  static const bool isProduction = false;
+  static const String prodUrl = 'https://hostelcare-backend.onrender.com/api';
 
   // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/Windows/Web
   static String get baseUrl {
     if (isProduction) return prodUrl;
     if (kIsWeb) return 'http://localhost:5000/api';
-    // Use 10.0.2.2 for Android emulator, or machine IP for physical device
-    // Machine IP from ipconfig: 192.168.137.95
-    return 'http://192.168.137.95:5000/api';
+    
+    // Automatically detect Android to use 10.0.2.2 for emulator
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Return 127.0.0.1 for physical device with ADB reverse, or use 10.0.2.2 for Emulator
+        return 'http://127.0.0.1:5000/api';
+      }
+    } catch (_) {}
+    
+    // Machine IP from ipconfig: 192.168.137.38
+    return 'http://192.168.137.38:5000/api';
   }
 
   static String get auth => '$baseUrl/auth';

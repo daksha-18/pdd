@@ -50,9 +50,11 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
     if (staffId == null) return;
     try {
       await ApiService.put('${ApiConstants.admin}/complaints/$complaintId/assign', {'staffId': staffId});
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Assigned!'), backgroundColor: Colors.green));
       _load();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     }
   }

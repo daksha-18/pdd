@@ -14,7 +14,7 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<ComplaintProvider>().fetchComplaintDetail(widget.complaintId));
+    Future.microtask(() { if (mounted) context.read<ComplaintProvider>().fetchComplaintDetail(widget.complaintId); });
   }
 
   @override

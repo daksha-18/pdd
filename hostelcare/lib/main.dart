@@ -105,14 +105,14 @@ class HostelCareApp extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         indicatorColor: const Color(0xFF6366F1).withOpacity(0.1),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1));
           }
           return GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF64748B));
         }),
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: Color(0xFF6366F1), size: 24);
           }
           return const IconThemeData(color: Color(0xFF64748B), size: 24);
@@ -188,14 +188,14 @@ class HostelCareApp extends StatelessWidget {
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
         indicatorColor: const Color(0xFF6366F1).withOpacity(0.2),
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white);
           }
           return GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8));
         }),
-        iconTheme: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: Colors.white, size: 24);
           }
           return const IconThemeData(color: Color(0xFF94A3B8), size: 24);

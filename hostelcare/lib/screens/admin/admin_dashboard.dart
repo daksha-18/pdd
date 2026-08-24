@@ -36,7 +36,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final primary = cs.primary;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -144,7 +143,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width > 900 ? 4 : (width > 600 ? 3 : 2);
-    final childAspectRatio = width > 900 ? 1.8 : (width > 600 ? 1.5 : 1.3);
+    final childAspectRatio = width > 900 ? 1.8 : (width > 600 ? 1.5 : 1.1);
 
     return GridView.builder(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -162,7 +161,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isDark ? color.withOpacity(0.1) : Colors.white,
             borderRadius: BorderRadius.circular(24),

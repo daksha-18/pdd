@@ -26,14 +26,13 @@ class _StudentHomeState extends State<StudentHome> {
   void initState() {
     super.initState();
     Future.microtask(
-        () => context.read<NotificationProvider>().fetchNotifications());
+        () { if (mounted) context.read<NotificationProvider>().fetchNotifications(); });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       body: _pages[_currentIndex],
