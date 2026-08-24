@@ -96,6 +96,27 @@ class ComplaintProvider extends ChangeNotifier {
     } catch (e) { _error = e.toString(); notifyListeners(); return false; }
   }
 
+  Future<bool> withdrawComplaint(String complaintId) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await ApiService.put('${ApiConstants.complaints}/$complaintId/withdraw', {});
+      await fetchComplaints();
+      if (_selectedComplaint?.id == complaintId) {
+        await fetchComplaintDetail(complaintId);
+      }
+      _error = null;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Offline support
   Future<void> saveOfflineComplaint(Map<String, dynamic> complaint) async {
     final prefs = await SharedPreferences.getInstance();

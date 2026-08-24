@@ -54,6 +54,10 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                 const SizedBox(height: 16),
                 FadeInUp(delay: const Duration(milliseconds: 500), child: _existingFeedback(c)),
               ],
+              if (c.status == 'pending' || c.status == 'assigned') ...[
+                const SizedBox(height: 24),
+                FadeInUp(delay: const Duration(milliseconds: 500), child: _withdrawSection(context, c)),
+              ],
             ]),
           );
         },
@@ -182,5 +186,52 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
       Row(children: List.generate(5, (i) => Icon(i < (fb['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 24))),
       if (fb['comment'] != null && fb['comment'].isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(fb['comment'], style: TextStyle(color: Colors.grey[600]))),
     ])));
+  }
+
+  Widget _withdrawSection(BuildContext context, c) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+        label: const Text('Withdraw Complaint', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.red),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          final provider = context.read<ComplaintProvider>();
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Confirm Withdrawal'),
+              content: const Text('Are you sure you want to withdraw this complaint?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Withdraw'),
+                ),
+              ],
+            ),
+          );
+          if (confirm == true) {
+            final success = await provider.withdrawComplaint(c.id);
+            if (!mounted) return;
+            if (success) {
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Complaint withdrawn successfully'), backgroundColor: Colors.orange),
+              );
+            } else {
+              messenger.showSnackBar(
+                const SnackBar(content: Text('Failed to withdraw complaint'), backgroundColor: Colors.red),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 }

@@ -87,6 +87,12 @@ router.get('/complaints', async (req, res, next) => {
         { complaintId: { $regex: search, $options: 'i' } },
       ];
     }
+
+    // Exclude complaints submitted by deactivated users
+    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+    const activeUserIds = activeUsers.map((u) => u._id);
+    filter.submittedBy = { $in: activeUserIds };
+
     const total = await Complaint.countDocuments(filter);
     const complaints = await Complaint.find(filter)
       .populate('submittedBy', 'name email hostelBlock roomNumber')

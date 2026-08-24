@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const Complaint = require('../models/Complaint');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { protect, authorize } = require('../middleware/auth');
 const { complaintValidation } = require('../middleware/validate');
@@ -77,6 +78,12 @@ router.get('/', protect, async (req, res, next) => {
     // Staff see only assigned complaints
     if (req.user.role === 'staff') {
       filter.assignedTo = req.user.id;
+    }
+
+    // Admin sees complaints from active users only
+    if (req.user.role === 'admin') {
+      const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+      filter.submittedBy = { $in: activeUsers.map((u) => u._id) };
     }
 
     if (status) filter.status = status;
@@ -250,6 +257,51 @@ router.post('/sync', protect, async (req, res, next) => {
       success: true,
       message: `${synced.length} complaints synced`,
       data: synced,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/complaints/:id/withdraw
+// @desc    Withdraw/cancel complaint by student
+// @access  Private (Student)
+router.put('/:id/withdraw', protect, authorize('student'), async (req, res, next) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (complaint.submittedBy.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    if (['resolved', 'closed', 'rejected'].includes(complaint.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot withdraw complaint that is already ${complaint.status}`,
+      });
+    }
+
+    complaint.status = 'closed';
+    complaint.statusHistory.push({
+      status: 'closed',
+      changedBy: req.user.id,
+      notes: 'Complaint withdrawn by student',
+    });
+
+    await complaint.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('complaint_update', complaint);
+    }
+
+    res.json({
+      success: true,
+      message: 'Complaint withdrawn successfully',
+      data: complaint,
     });
   } catch (error) {
     next(error);

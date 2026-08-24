@@ -8,15 +8,19 @@ router.use(protect, authorize('admin'));
 // GET /api/analytics/dashboard
 router.get('/dashboard', async (req, res, next) => {
   try {
+    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+    const activeUserIds = activeUsers.map((u) => u._id);
+    const activeFilter = { submittedBy: { $in: activeUserIds } };
+
     const [totalComplaints, pending, assigned, inProgress, resolved, closed, totalStudents, totalStaff] = await Promise.all([
-      Complaint.countDocuments(),
-      Complaint.countDocuments({ status: 'pending' }),
-      Complaint.countDocuments({ status: 'assigned' }),
-      Complaint.countDocuments({ status: 'in_progress' }),
-      Complaint.countDocuments({ status: 'resolved' }),
-      Complaint.countDocuments({ status: 'closed' }),
-      User.countDocuments({ role: 'student' }),
-      User.countDocuments({ role: 'staff' }),
+      Complaint.countDocuments(activeFilter),
+      Complaint.countDocuments({ ...activeFilter, status: 'pending' }),
+      Complaint.countDocuments({ ...activeFilter, status: 'assigned' }),
+      Complaint.countDocuments({ ...activeFilter, status: 'in_progress' }),
+      Complaint.countDocuments({ ...activeFilter, status: 'resolved' }),
+      Complaint.countDocuments({ ...activeFilter, status: 'closed' }),
+      User.countDocuments({ role: 'student', isActive: { $ne: false } }),
+      User.countDocuments({ role: 'staff', isActive: { $ne: false } }),
     ]);
 
     const categoryDist = await Complaint.aggregate([

@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const Complaint = require('../models/Complaint');
+const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
@@ -11,7 +12,11 @@ router.use(protect, authorize('staff'));
 router.get('/assignments', async (req, res, next) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    const filter = { assignedTo: req.user.id };
+    
+    // Exclude complaints submitted by deactivated users
+    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+    const activeUserIds = activeUsers.map((u) => u._id);
+    const filter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
     if (status) filter.status = status;
 
     const total = await Complaint.countDocuments(filter);
@@ -75,10 +80,14 @@ router.post('/assignments/:id/completion-images', upload.array('images', 3), asy
 // GET /api/staff/stats
 router.get('/stats', async (req, res, next) => {
   try {
+    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+    const activeUserIds = activeUsers.map((u) => u._id);
+    const baseFilter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
+
     const [assigned, inProgress, resolved] = await Promise.all([
-      Complaint.countDocuments({ assignedTo: req.user.id, status: 'assigned' }),
-      Complaint.countDocuments({ assignedTo: req.user.id, status: 'in_progress' }),
-      Complaint.countDocuments({ assignedTo: req.user.id, status: 'resolved' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
+      Complaint.countDocuments({ ...baseFilter, status: 'resolved' }),
     ]);
     res.json({ success: true, data: { assigned, inProgress, resolved, total: assigned + inProgress + resolved } });
   } catch (error) { next(error); }
