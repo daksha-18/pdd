@@ -25,7 +25,7 @@ async function migrateData() {
     console.log('✅ Connected to MongoDB');
 
     // 1. Migrate Users
-    const users = await User.find({}).lean();
+    const users = await User.find({}).select('+password').lean();
     console.log(`📦 Found ${users.length} users in MongoDB`);
     for (const u of users) {
       const userPayload = {
