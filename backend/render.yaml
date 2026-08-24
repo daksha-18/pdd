@@ -24,3 +24,7 @@ services:
         sync: false
       - key: CLIENT_URL
         value: https://hostelcare-plus.web.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
