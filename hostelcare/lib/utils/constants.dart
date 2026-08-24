@@ -2,13 +2,13 @@ import 'package:flutter/foundation.dart';
 
 class ApiConstants {
   // Set this to true when deploying to production
-  static const bool isProduction = false;
-  static const String prodUrl = 'https://hostelcare-backend.onrender.com/api';
+  static const bool isProduction = true;
+  static const String prodUrl = 'https://pdd-1-n2am.onrender.com/api';
 
-  // Use 10.0.2.2 for Android emulator, localhost for iOS simulator/Windows/Web
+  // Use production URL for Web release and production mode
   static String get baseUrl {
-    if (isProduction) return prodUrl;
-    if (kIsWeb) return 'http://localhost:5000/api';
+    if (kReleaseMode || isProduction) return prodUrl;
+    if (kIsWeb) return prodUrl;
     
     // Automatically detect Android to use 10.0.2.2 for emulator
     try {
