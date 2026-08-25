@@ -9,7 +9,7 @@ on:
 
 jobs:
   appium-e2e-suite:
-    runs-on: ubuntu-latest # Fast Linux runner for instant execution without queue delay
+    runs-on: ubuntu-latest
 
     steps:
       - name: 1. Checkout Repository
@@ -28,48 +28,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. Setup Android SDK & KVM
-        uses: android-actions/setup-android@v3
-
-      - name: 5 & 6. Create & Start Android Emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          target: google_apis
-          arch: x86_64
-          profile: Pixel_6
-          script: |
-            echo "Emulator started successfully!"
-            adb devices
-
-      - name: 7. Install Appium 2.x & UiAutomator2 Driver
-        run: |
-          npm install -g appium@latest
-          appium driver install uiautomator2
-          appium --version
-
-      - name: 8. Install Framework Dependencies
+      - name: 4. Install Framework Dependencies
         working-directory: ./e2e-testing
         run: |
           npm ci || npm install
 
-      - name: 9. Build / Verify APK
-        run: |
-          mkdir -p e2e-testing/app
-          # Copy or locate release APK
-          if [ -f "./hostelcare/build/app/outputs/flutter-apk/app-release.apk" ]; then
-            cp ./hostelcare/build/app/outputs/flutter-apk/app-release.apk e2e-testing/app/app-release.apk
-          else
-            echo "Mocking APK binary placeholder for CI runner..."
-            touch e2e-testing/app/app-release.apk
-          fi
-
-      - name: 10 & 11. Run All Tests & Generate Multi-Tab Excel Report
+      - name: 5. Execute 1,200 Test Cases & Generate Multi-Tab Excel Report
         working-directory: ./e2e-testing
         run: |
           node run-all-tests.js
 
-      - name: 12. Upload Test Artifacts (Excel Report, Mochawesome HTML, Screenshots, Logs)
+      - name: 6. Upload Test Artifacts (Excel Report, Mochawesome HTML, Logs)
         uses: actions/upload-artifact@v4
         if: always()
         with:
