@@ -9,7 +9,7 @@ on:
 
 jobs:
   appium-e2e-suite:
-    runs-on: macos-13 # macos runner supports hardware-accelerated Android Emulator KVM/HVF
+    runs-on: ubuntu-latest # Fast Linux runner for instant execution without queue delay
 
     steps:
       - name: 1. Checkout Repository
