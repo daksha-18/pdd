@@ -1,0 +1,40 @@
+{
+  "name": "hostelcare-e2e-testing",
+  "version": "1.0.0",
+  "description": "Comprehensive Appium E2E (300 cases), API (300 cases), Load (300 cases), and Vulnerability (300 cases) test automation framework with multi-tab Excel generator and GitHub Actions workflow",
+  "main": "run-all-tests.js",
+  "scripts": {
+    "test": "node run-all-tests.js",
+    "test:appium": "mocha test/appium_300.spec.js --timeout 120000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=appium_report",
+    "test:api": "mocha test/api_300.spec.js --timeout 60000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=api_report",
+    "test:load": "mocha test/load_300.spec.js --timeout 60000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=load_report",
+    "test:vulnerability": "mocha test/vulnerability_300.spec.js --timeout 60000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=vulnerability_report",
+    "ai-discover": "node utils/smart-ai-tester.js",
+    "generate-excel": "node utils/excel.reporter.js"
+  },
+  "keywords": [
+    "appium",
+    "react-native",
+    "flutter",
+    "mocha",
+    "chai",
+    "exceljs",
+    "mochawesome",
+    "load-testing",
+    "vulnerability-testing",
+    "api-testing"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "appium": "^2.5.1",
+    "axios": "^1.6.8",
+    "chai": "^4.3.10",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "mocha": "^10.4.0",
+    "mochawesome": "^7.1.3",
+    "webdriverio": "^8.36.0",
+    "winston": "^3.13.0"
+  }
+}

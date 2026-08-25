@@ -1,0 +1,150 @@
+{
+  "timestamp": "2026-08-25T04:21:50.109Z",
+  "discoveredWidgets": [
+    {
+      "id": "WIDGET_TEXTFIELD_1",
+      "type": "TextField",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(textfield_1)"
+    },
+    {
+      "id": "WIDGET_TEXTFIELD_2",
+      "type": "TextField",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(textfield_2)"
+    },
+    {
+      "id": "WIDGET_TEXTFIELD_3",
+      "type": "TextField",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(textfield_3)"
+    },
+    {
+      "id": "WIDGET_TEXTFIELD_4",
+      "type": "TextField",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(textfield_4)"
+    },
+    {
+      "id": "WIDGET_BUTTON_1",
+      "type": "Button",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(button_1)"
+    },
+    {
+      "id": "WIDGET_BUTTON_2",
+      "type": "Button",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(button_2)"
+    },
+    {
+      "id": "WIDGET_DROPDOWN_1",
+      "type": "Dropdown",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(dropdown_1)"
+    },
+    {
+      "id": "WIDGET_CHECKBOX_1",
+      "type": "Checkbox",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(checkbox_1)"
+    },
+    {
+      "id": "WIDGET_CHECKBOX_2",
+      "type": "Checkbox",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(checkbox_2)"
+    },
+    {
+      "id": "WIDGET_LINK_1",
+      "type": "Link",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(link_1)"
+    },
+    {
+      "id": "WIDGET_LINK_2",
+      "type": "Link",
+      "screen": "LoginScreen",
+      "locator": "ValueKey(link_2)"
+    }
+  ],
+  "generatedScenarios": [
+    {
+      "id": "AI_GEN_1",
+      "widgetId": "WIDGET_TEXTFIELD_1",
+      "scenarioName": "Dynamic required field validation for WIDGET_TEXTFIELD_1",
+      "action": "Leave field empty and submit",
+      "expectedResult": "Display validation message \"Field cannot be empty\""
+    },
+    {
+      "id": "AI_GEN_2",
+      "widgetId": "WIDGET_TEXTFIELD_1",
+      "scenarioName": "Boundary length test for WIDGET_TEXTFIELD_1",
+      "action": "Input 256 characters payload",
+      "expectedResult": "Truncate input or display max length error"
+    },
+    {
+      "id": "AI_GEN_3",
+      "widgetId": "WIDGET_TEXTFIELD_2",
+      "scenarioName": "Dynamic required field validation for WIDGET_TEXTFIELD_2",
+      "action": "Leave field empty and submit",
+      "expectedResult": "Display validation message \"Field cannot be empty\""
+    },
+    {
+      "id": "AI_GEN_4",
+      "widgetId": "WIDGET_TEXTFIELD_2",
+      "scenarioName": "Boundary length test for WIDGET_TEXTFIELD_2",
+      "action": "Input 256 characters payload",
+      "expectedResult": "Truncate input or display max length error"
+    },
+    {
+      "id": "AI_GEN_5",
+      "widgetId": "WIDGET_TEXTFIELD_3",
+      "scenarioName": "Dynamic required field validation for WIDGET_TEXTFIELD_3",
+      "action": "Leave field empty and submit",
+      "expectedResult": "Display validation message \"Field cannot be empty\""
+    },
+    {
+      "id": "AI_GEN_6",
+      "widgetId": "WIDGET_TEXTFIELD_3",
+      "scenarioName": "Boundary length test for WIDGET_TEXTFIELD_3",
+      "action": "Input 256 characters payload",
+      "expectedResult": "Truncate input or display max length error"
+    },
+    {
+      "id": "AI_GEN_7",
+      "widgetId": "WIDGET_TEXTFIELD_4",
+      "scenarioName": "Dynamic required field validation for WIDGET_TEXTFIELD_4",
+      "action": "Leave field empty and submit",
+      "expectedResult": "Display validation message \"Field cannot be empty\""
+    },
+    {
+      "id": "AI_GEN_8",
+      "widgetId": "WIDGET_TEXTFIELD_4",
+      "scenarioName": "Boundary length test for WIDGET_TEXTFIELD_4",
+      "action": "Input 256 characters payload",
+      "expectedResult": "Truncate input or display max length error"
+    },
+    {
+      "id": "AI_GEN_9",
+      "widgetId": "WIDGET_BUTTON_1",
+      "scenarioName": "Click responsiveness test for WIDGET_BUTTON_1",
+      "action": "Tap button and capture navigation transition",
+      "expectedResult": "Trigger screen navigation or state update"
+    },
+    {
+      "id": "AI_GEN_10",
+      "widgetId": "WIDGET_BUTTON_2",
+      "scenarioName": "Click responsiveness test for WIDGET_BUTTON_2",
+      "action": "Tap button and capture navigation transition",
+      "expectedResult": "Trigger screen navigation or state update"
+    },
+    {
+      "id": "AI_GEN_11",
+      "widgetId": "WIDGET_DROPDOWN_1",
+      "scenarioName": "Option selection validation for WIDGET_DROPDOWN_1",
+      "action": "Select item from dropdown menu",
+      "expectedResult": "Selected value reflected in form state"
+    }
+  ]
+}
