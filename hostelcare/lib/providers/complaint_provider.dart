@@ -22,13 +22,14 @@ class ComplaintProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get currentPage => _currentPage;
 
-  Future<void> fetchComplaints({String? status, String? category, int page = 1}) async {
+  Future<void> fetchComplaints({String? status, String? category, bool? isCommonArea, int page = 1}) async {
     _isLoading = true;
     notifyListeners();
     try {
       String url = '${ApiConstants.complaints}?page=$page&limit=20';
       if (status != null) url += '&status=$status';
       if (category != null) url += '&category=$category';
+      if (isCommonArea == true) url += '&isCommonArea=true';
       final res = await ApiService.get(url);
       final list = (res['data'] as List).map((e) => ComplaintModel.fromJson(e)).toList();
       if (page == 1) { _complaints = list; } else { _complaints.addAll(list); }
@@ -62,6 +63,7 @@ class ComplaintProvider extends ChangeNotifier {
     String priority = 'medium',
     List<XFile>? images,
     bool qrScanned = false,
+    bool isCommonArea = false,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -72,6 +74,7 @@ class ComplaintProvider extends ChangeNotifier {
         'category': category,
         'priority': priority,
         'qrScanned': qrScanned.toString(),
+        'isCommonArea': isCommonArea.toString(),
         'location': jsonEncode({'hostelBlock': hostelBlock, 'roomNumber': roomNumber, 'floor': floor ?? ''}),
       };
       await ApiService.multipartPost(ApiConstants.complaints, fields: fields, files: images);
@@ -83,6 +86,26 @@ class ComplaintProvider extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> toggleUpvote(String complaintId) async {
+    try {
+      final res = await ApiService.put('${ApiConstants.complaints}/$complaintId/upvote', {});
+      final updated = ComplaintModel.fromJson(res['data']);
+      final index = _complaints.indexWhere((c) => c.id == complaintId);
+      if (index > -1) {
+        _complaints[index] = updated;
+      }
+      if (_selectedComplaint?.id == complaintId) {
+        _selectedComplaint = updated;
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
       notifyListeners();
       return false;
     }

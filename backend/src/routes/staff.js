@@ -84,12 +84,24 @@ router.get('/stats', async (req, res, next) => {
     const activeUserIds = activeUsers.map((u) => u._id);
     const baseFilter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
 
+    const userDoc = await User.findById(req.user.id).select('averageRating totalRatingsCount');
+
     const [assigned, inProgress, resolved] = await Promise.all([
       Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
       Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
       Complaint.countDocuments({ ...baseFilter, status: 'resolved' }),
     ]);
-    res.json({ success: true, data: { assigned, inProgress, resolved, total: assigned + inProgress + resolved } });
+    res.json({
+      success: true,
+      data: {
+        assigned,
+        inProgress,
+        resolved,
+        total: assigned + inProgress + resolved,
+        averageRating: userDoc?.averageRating || 0,
+        totalRatingsCount: userDoc?.totalRatingsCount || 0,
+      },
+    });
   } catch (error) { next(error); }
 });
 

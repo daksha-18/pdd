@@ -31,7 +31,38 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
   final _floorCtrl = TextEditingController();
   String _category = 'electrical';
   String _priority = 'medium';
+  bool _isCommonArea = false;
   final List<XFile> _images = [];
+
+  String _deriveFloorFromRoom(String room) {
+    final clean = room.trim();
+    if (clean.isEmpty) return '';
+    final match = RegExp(r'\d+').firstMatch(clean);
+    if (match == null) return '';
+    final numStr = match.group(0)!;
+    final num = int.tryParse(numStr);
+    if (num == null) return '';
+
+    int floorNum;
+    if (numStr.length >= 3) {
+      floorNum = num ~/ 100;
+    } else {
+      floorNum = 0;
+    }
+
+    if (floorNum == 0) return 'Ground';
+    if (floorNum == 1) return '1st';
+    if (floorNum == 2) return '2nd';
+    if (floorNum == 3) return '3rd';
+    return '${floorNum}th';
+  }
+
+  void _onRoomChanged() {
+    final derived = _deriveFloorFromRoom(_roomCtrl.text);
+    if (derived.isNotEmpty) {
+      _floorCtrl.text = derived;
+    }
+  }
 
   @override
   void initState() {
@@ -39,10 +70,13 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
     final user = context.read<AuthProvider>().user;
     _blockCtrl.text = widget.prefilledBlock ?? user?.hostelBlock ?? '';
     _roomCtrl.text = widget.prefilledRoom ?? user?.roomNumber ?? '';
+    _floorCtrl.text = _deriveFloorFromRoom(_roomCtrl.text);
+    _roomCtrl.addListener(_onRoomChanged);
   }
 
   @override
   void dispose() {
+    _roomCtrl.removeListener(_onRoomChanged);
     _titleCtrl.dispose();
     _descCtrl.dispose();
     _blockCtrl.dispose();
@@ -91,6 +125,7 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
       priority: _priority,
       images: _images.isNotEmpty ? _images : null,
       qrScanned: widget.qrScanned,
+      isCommonArea: _isCommonArea,
     );
     if (!mounted) return;
     if (success) {
@@ -161,6 +196,36 @@ class _SubmitComplaintScreenState extends State<SubmitComplaintScreen> {
                     alignLabelWithHint: true,
                   ),
                   validator: (v) => v == null || v.isEmpty ? 'Please provide details' : null,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FadeInUp(
+                delay: const Duration(milliseconds: 180),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _isCommonArea
+                        ? primary.withOpacity(0.1)
+                        : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _isCommonArea ? primary : (isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFE2E8F0)),
+                    ),
+                  ),
+                  child: SwitchListTile(
+                    activeColor: primary,
+                    value: _isCommonArea,
+                    onChanged: (val) => setState(() => _isCommonArea = val),
+                    title: Text(
+                      'Common Area Issue',
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    subtitle: Text(
+                      'e.g. WiFi, Washroom, Mess, Corridor (Allow others to Upvote)',
+                      style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                    secondary: Icon(Icons.people_outline_rounded, color: _isCommonArea ? primary : Colors.grey[500]),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

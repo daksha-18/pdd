@@ -12,9 +12,23 @@ const { sendPushNotification } = require('../config/firebase');
 // @access  Private (Student)
 router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
   try {
-    const { title, description, category, location, priority, qrScanned, isOfflineSubmission } = req.body;
+    const { title, description, category, location, priority, qrScanned, isOfflineSubmission, isCommonArea } = req.body;
 
-    const parsedLocation = typeof location === 'string' ? JSON.parse(location) : location;
+    const parsedLocation = typeof location === 'string' ? JSON.parse(location) : (location || {});
+
+    if (parsedLocation.roomNumber) {
+      const match = parsedLocation.roomNumber.toString().match(/\d+/);
+      if (match) {
+        const numStr = match[0];
+        const num = parseInt(numStr, 10);
+        const floorNum = numStr.length >= 3 ? Math.floor(num / 100) : 0;
+        const suffixes = ['Ground', '1st', '2nd', '3rd'];
+        const derivedFloor = suffixes[floorNum] || `${floorNum}th`;
+        if (!parsedLocation.floor || parsedLocation.floor === '') {
+          parsedLocation.floor = derivedFloor;
+        }
+      }
+    }
 
     const images = req.files
       ? req.files.map((file) => {
@@ -36,6 +50,7 @@ router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
       images,
       qrScanned: qrScanned === 'true' || qrScanned === true,
       isOfflineSubmission: isOfflineSubmission === 'true' || isOfflineSubmission === true,
+      isCommonArea: isCommonArea === 'true' || isCommonArea === true,
       statusHistory: [
         {
           status: 'pending',
@@ -49,7 +64,9 @@ router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
 
     // Emit real-time event
     const io = req.app.get('io');
-    io.emit('new_complaint', complaint);
+    if (io) {
+      io.emit('new_complaint', complaint);
+    }
 
     res.status(201).json({
       success: true,
@@ -66,22 +83,28 @@ router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
 // @access  Private
 router.get('/', protect, async (req, res, next) => {
   try {
-    const { status, category, priority, page = 1, limit = 10, sort = '-createdAt' } = req.query;
+    const { status, category, priority, isCommonArea, page = 1, limit = 10, sort = '-createdAt' } = req.query;
 
     const filter = {};
 
-    // Students see only their complaints
+    // Students see their complaints, OR all common area complaints if isCommonArea=true
     if (req.user.role === 'student') {
-      filter.submittedBy = req.user.id;
+      if (isCommonArea === 'true') {
+        filter.isCommonArea = true;
+      } else {
+        filter.submittedBy = req.user.id;
+      }
+    } else if (isCommonArea === 'true') {
+      filter.isCommonArea = true;
     }
 
-    // Staff see only assigned complaints
-    if (req.user.role === 'staff') {
+    // Staff see assigned complaints (or common area if requested)
+    if (req.user.role === 'staff' && isCommonArea !== 'true') {
       filter.assignedTo = req.user.id;
     }
 
     // Admin sees complaints from active users only
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' && isCommonArea !== 'true') {
       const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
       filter.submittedBy = { $in: activeUsers.map((u) => u._id) };
     }
@@ -121,21 +144,70 @@ router.get('/:id', protect, async (req, res, next) => {
     const complaint = await Complaint.findById(req.params.id)
       .populate('submittedBy', 'name email hostelBlock roomNumber avatar')
       .populate('assignedTo', 'name email specialization avatar')
-      .populate('statusHistory.changedBy', 'name role');
+      .populate('statusHistory.changedBy', 'name role')
+      .populate('upvotedBy', 'name email');
 
     if (!complaint) {
       return res.status(404).json({ success: false, message: 'Complaint not found' });
     }
 
-    // Check ownership for students
+    // Check authorization for students: must be submitter, upvoter, or a common area complaint
     if (
       req.user.role === 'student' &&
-      complaint.submittedBy._id.toString() !== req.user.id
+      !complaint.isCommonArea &&
+      complaint.submittedBy._id.toString() !== req.user.id &&
+      !complaint.upvotedBy.some((u) => u._id.toString() === req.user.id)
     ) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
     res.json({ success: true, data: complaint });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// @route   PUT /api/complaints/:id/upvote
+// @desc    Upvote / Me-Too a common area complaint
+// @access  Private (Student)
+router.put('/:id/upvote', protect, authorize('student'), async (req, res, next) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (['closed', 'rejected'].includes(complaint.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot upvote closed or rejected complaints' });
+    }
+
+    const userIdStr = req.user.id.toString();
+    const existingIndex = complaint.upvotedBy.findIndex((id) => id.toString() === userIdStr);
+
+    if (existingIndex > -1) {
+      // Remove upvote
+      complaint.upvotedBy.splice(existingIndex, 1);
+    } else {
+      // Add upvote
+      complaint.upvotedBy.push(req.user.id);
+    }
+
+    complaint.upvoteCount = complaint.upvotedBy.length;
+    await complaint.save();
+
+    await complaint.populate('submittedBy', 'name email hostelBlock roomNumber');
+    await complaint.populate('assignedTo', 'name email specialization');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('complaint_upvoted', { complaintId: complaint._id, upvoteCount: complaint.upvoteCount, upvotedBy: complaint.upvotedBy });
+    }
+
+    res.json({
+      success: true,
+      message: existingIndex > -1 ? 'Upvote removed' : 'Complaint upvoted successfully',
+      data: complaint,
+    });
   } catch (error) {
     next(error);
   }
@@ -167,29 +239,39 @@ router.put('/:id/status', protect, authorize('admin', 'staff'), async (req, res,
     await complaint.save();
     await complaint.populate('submittedBy', 'name email fcmToken');
     await complaint.populate('assignedTo', 'name email');
+    await complaint.populate('upvotedBy', 'name email fcmToken');
 
-    // Create notification
-    await Notification.create({
-      recipient: complaint.submittedBy._id,
-      title: 'Complaint Status Updated',
-      body: `Your complaint "${complaint.title}" is now ${status.replace('_', ' ')}`,
-      type: 'complaint_update',
-      relatedComplaint: complaint._id,
-    });
+    // Notification recipients: submitter + all upvoters
+    const recipients = [complaint.submittedBy._id, ...complaint.upvotedBy.map((u) => u._id)];
+    const uniqueRecipients = [...new Set(recipients.map((id) => id.toString()))];
 
-    // Send push notification
-    if (complaint.submittedBy.fcmToken) {
-      await sendPushNotification(
-        complaint.submittedBy.fcmToken,
-        'Complaint Update',
-        `Your complaint "${complaint.title}" is now ${status.replace('_', ' ')}`,
-        { complaintId: complaint._id.toString(), status }
-      );
+    for (const recipientId of uniqueRecipients) {
+      await Notification.create({
+        recipient: recipientId,
+        title: 'Complaint Status Updated',
+        body: `Complaint "${complaint.title}" is now ${status.replace('_', ' ')}`,
+        type: 'complaint_update',
+        relatedComplaint: complaint._id,
+      });
+
+      const userDoc = recipientId === complaint.submittedBy._id.toString()
+        ? complaint.submittedBy
+        : complaint.upvotedBy.find((u) => u._id.toString() === recipientId);
+
+      if (userDoc && userDoc.fcmToken) {
+        await sendPushNotification(
+          userDoc.fcmToken,
+          'Complaint Update',
+          `Complaint "${complaint.title}" is now ${status.replace('_', ' ')}`,
+          { complaintId: complaint._id.toString(), status }
+        );
+      }
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(recipientId).emit('complaint_update', complaint);
+      }
     }
-
-    // Emit real-time event
-    const io = req.app.get('io');
-    io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
 
     res.json({ success: true, message: 'Status updated', data: complaint });
   } catch (error) {
@@ -226,6 +308,23 @@ router.put('/:id/feedback', protect, authorize('student'), async (req, res, next
     });
 
     await complaint.save();
+
+    // Recalculate assigned staff rating if staff was assigned
+    if (complaint.assignedTo) {
+      const ratedComplaints = await Complaint.find({
+        assignedTo: complaint.assignedTo,
+        'feedback.rating': { $exists: true, $ne: null },
+      });
+
+      if (ratedComplaints.length > 0) {
+        const totalRatingSum = ratedComplaints.reduce((acc, curr) => acc + (curr.feedback.rating || 0), 0);
+        const avg = Math.round((totalRatingSum / ratedComplaints.length) * 10) / 10;
+        await User.findByIdAndUpdate(complaint.assignedTo, {
+          averageRating: avg,
+          totalRatingsCount: ratedComplaints.length,
+        });
+      }
+    }
 
     res.json({ success: true, message: 'Feedback submitted', data: complaint });
   } catch (error) {
@@ -277,16 +376,16 @@ router.put('/:id/withdraw', protect, authorize('student'), async (req, res, next
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (['resolved', 'closed', 'rejected'].includes(complaint.status)) {
+    if (['resolved', 'closed', 'rejected', 'withdrawn'].includes(complaint.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot withdraw complaint that is already ${complaint.status}`,
       });
     }
 
-    complaint.status = 'closed';
+    complaint.status = 'withdrawn';
     complaint.statusHistory.push({
-      status: 'closed',
+      status: 'withdrawn',
       changedBy: req.user.id,
       notes: 'Complaint withdrawn by student',
     });

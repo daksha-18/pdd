@@ -202,9 +202,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final active = complaints
         .where((c) => c.status == 'in_progress' || c.status == 'assigned')
         .length;
-    final resolved = complaints
-        .where((c) => c.status == 'resolved' || c.status == 'closed')
-        .length;
+    final resolved = complaints.where((c) {
+      if (c.status == 'withdrawn') return false;
+      if (c.status == 'closed' && c.feedback == null && c.resolvedAt == null) return false;
+      return c.status == 'resolved' || (c.status == 'closed' && (c.feedback != null || c.resolvedAt != null));
+    }).length;
     return Row(
       children: [
         Expanded(
@@ -286,7 +288,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
       'assigned': const Color(0xFF3B82F6),
       'in_progress': const Color(0xFF6366F1),
       'resolved': const Color(0xFF10B981),
-      'closed': const Color(0xFF64748B)
+      'closed': const Color(0xFF64748B),
+      'withdrawn': const Color(0xFF94A3B8),
     };
     final color = statusColors[complaint.status] ?? Colors.grey;
     final isDark = Theme.of(context).brightness == Brightness.dark;

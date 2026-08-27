@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/complaint_provider.dart';
 import 'complaint_detail_screen.dart';
 
@@ -14,8 +15,7 @@ class MyComplaintsScreen extends StatefulWidget {
 class _MyComplaintsScreenState extends State<MyComplaintsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-  final _tabs = ['All', 'Pending', 'Assigned', 'In Progress', 'Resolved'];
-  final _filters = [null, 'pending', 'assigned', 'in_progress', 'resolved'];
+  final _tabs = ['All', 'Campus Issues 🌐', 'Pending', 'Assigned', 'Resolved'];
 
   @override
   void initState() {
@@ -28,9 +28,13 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
   }
 
   void _load() {
-    context
-        .read<ComplaintProvider>()
-        .fetchComplaints(status: _filters[_tabCtrl.index]);
+    final idx = _tabCtrl.index;
+    if (idx == 1) {
+      context.read<ComplaintProvider>().fetchComplaints(isCommonArea: true);
+    } else {
+      final statusFilter = idx == 0 ? null : (idx == 2 ? 'pending' : (idx == 3 ? 'assigned' : 'resolved'));
+      context.read<ComplaintProvider>().fetchComplaints(status: statusFilter);
+    }
   }
 
   @override
@@ -48,7 +52,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('My Complaints', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text('Complaints & Issues', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -98,7 +102,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
                   FadeInUp(
                     delay: const Duration(milliseconds: 100),
                     child: Text(
-                      'Any issues you report will appear here.',
+                      'Any issues you report or upvote will appear here.',
                       style: GoogleFonts.inter(color: Colors.grey[500], fontSize: 14),
                     ),
                   ),
@@ -107,7 +111,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => provider.fetchComplaints(status: _filters[_tabCtrl.index]),
+            onRefresh: () async => _load(),
             color: primary,
             child: ListView.builder(
               physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
@@ -130,7 +134,8 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
       'assigned': const Color(0xFF3B82F6),
       'in_progress': const Color(0xFF6366F1),
       'resolved': const Color(0xFF10B981),
-      'closed': const Color(0xFF64748B)
+      'closed': const Color(0xFF64748B),
+      'withdrawn': const Color(0xFF94A3B8),
     };
     final priorityColors = {
       'low': const Color(0xFF10B981),
@@ -141,6 +146,9 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
     final sc = statusColors[complaint.status] ?? Colors.grey;
     final pc = priorityColors[complaint.priority] ?? Colors.grey;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
+    final currentUser = context.watch<AuthProvider>().user;
+    final isUpvoted = currentUser != null && complaint.isUpvotedByMe(currentUser.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -194,9 +202,27 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          complaint.complaintId ?? '',
-                          style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                        Row(
+                          children: [
+                            Text(
+                              complaint.complaintId ?? '',
+                              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            ),
+                            if (complaint.isCommonArea) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: primary.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Common Area',
+                                  style: GoogleFonts.inter(fontSize: 10, color: primary, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -210,6 +236,40 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
                   const SizedBox(width: 8),
                   _chip(complaint.priority[0].toUpperCase() + complaint.priority.substring(1), pc),
                   const Spacer(),
+                  if (complaint.isCommonArea && !['closed', 'rejected'].contains(complaint.status)) ...[
+                    InkWell(
+                      onTap: () async {
+                        await context.read<ComplaintProvider>().toggleUpvote(complaint.id);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isUpvoted ? primary : primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isUpvoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+                              size: 14,
+                              color: isUpvoted ? Colors.white : primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${complaint.upvoteCount}',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isUpvoted ? Colors.white : primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(

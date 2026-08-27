@@ -57,7 +57,8 @@ class AppConstants {
     'in_progress',
     'resolved',
     'closed',
-    'rejected'
+    'rejected',
+    'withdrawn'
   ];
 
   static const Map<String, String> categoryIcons = {
@@ -77,5 +78,6 @@ class AppConstants {
     'resolved': 'Resolved',
     'closed': 'Closed',
     'rejected': 'Rejected',
+    'withdrawn': 'Withdrawn',
   };
 }

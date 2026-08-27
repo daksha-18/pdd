@@ -18,6 +18,9 @@ class ComplaintModel {
   final String? resolvedAt;
   final bool isOfflineSubmission;
   final bool qrScanned;
+  final bool isCommonArea;
+  final List<String> upvotedBy;
+  final int upvoteCount;
 
   ComplaintModel({
     required this.id,
@@ -39,9 +42,25 @@ class ComplaintModel {
     this.resolvedAt,
     this.isOfflineSubmission = false,
     this.qrScanned = false,
+    this.isCommonArea = false,
+    this.upvotedBy = const [],
+    this.upvoteCount = 0,
   });
 
   factory ComplaintModel.fromJson(Map<String, dynamic> json) {
+    List<String> parsedUpvotedBy = [];
+    if (json['upvotedBy'] is List) {
+      parsedUpvotedBy = (json['upvotedBy'] as List).map((e) {
+        if (e is Map) return (e['_id'] ?? e['id'] ?? '').toString();
+        return e.toString();
+      }).toList();
+    }
+
+    String parsedStatus = json['status'] ?? 'pending';
+    if (parsedStatus == 'closed' && json['resolvedAt'] == null && json['feedback'] == null) {
+      parsedStatus = 'withdrawn';
+    }
+
     return ComplaintModel(
       id: json['_id'] ?? json['id'] ?? '',
       complaintId: json['complaintId'],
@@ -49,7 +68,7 @@ class ComplaintModel {
       description: json['description'] ?? '',
       category: json['category'] ?? 'other',
       priority: json['priority'] ?? 'medium',
-      status: json['status'] ?? 'pending',
+      status: parsedStatus,
       submittedBy: json['submittedBy'] is Map ? json['submittedBy'] : null,
       assignedTo: json['assignedTo'] is Map ? json['assignedTo'] : null,
       location: Map<String, dynamic>.from(json['location'] ?? {}),
@@ -62,6 +81,9 @@ class ComplaintModel {
       resolvedAt: json['resolvedAt'],
       isOfflineSubmission: json['isOfflineSubmission'] ?? false,
       qrScanned: json['qrScanned'] ?? false,
+      isCommonArea: json['isCommonArea'] ?? false,
+      upvotedBy: parsedUpvotedBy,
+      upvoteCount: json['upvoteCount'] ?? parsedUpvotedBy.length,
     );
   }
 
@@ -69,7 +91,10 @@ class ComplaintModel {
     'title': title, 'description': description, 'category': category,
     'priority': priority, 'location': location,
     'isOfflineSubmission': isOfflineSubmission, 'qrScanned': qrScanned,
+    'isCommonArea': isCommonArea,
   };
+
+  bool isUpvotedByMe(String userId) => upvotedBy.contains(userId);
 
   String get statusLabel {
     switch (status) {
@@ -78,6 +103,8 @@ class ComplaintModel {
       case 'in_progress': return 'In Progress';
       case 'resolved': return 'Resolved';
       case 'closed': return 'Closed';
+      case 'rejected': return 'Rejected';
+      case 'withdrawn': return 'Withdrawn';
       default: return status;
     }
   }

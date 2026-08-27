@@ -116,12 +116,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                       FadeInUp(child: _overviewCards()),
-                      const SizedBox(height: 32),
-                      FadeInUp(delay: const Duration(milliseconds: 200), child: _categoryChart()),
                       const SizedBox(height: 24),
-                      FadeInUp(delay: const Duration(milliseconds: 400), child: _resolutionCard()),
+                      FadeInUp(delay: const Duration(milliseconds: 200), child: _resolutionCard()),
                       const SizedBox(height: 24),
-                      FadeInUp(delay: const Duration(milliseconds: 600), child: _priorityChart()),
+                      FadeInUp(delay: const Duration(milliseconds: 400), child: _priorityChart()),
                       const SizedBox(height: 40),
                     ]),
                   ),

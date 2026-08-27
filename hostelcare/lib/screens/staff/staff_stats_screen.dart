@@ -101,6 +101,11 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
                   ),
                   const SizedBox(height: 32),
                   FadeInUp(
+                    delay: const Duration(milliseconds: 150),
+                    child: _ratingBanner(),
+                  ),
+                  const SizedBox(height: 24),
+                  FadeInUp(
                     delay: const Duration(milliseconds: 200),
                     child: Row(
                       children: [
@@ -118,6 +123,65 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
               ),
             ),
           ),
+    );
+  }
+
+  Widget _ratingBanner() {
+    final avgRating = (_stats?['averageRating'] ?? 0.0).toDouble();
+    final count = _stats?['totalRatingsCount'] ?? 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.amber.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.amber.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.amber.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.star_rounded, color: Colors.amber, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Satisfaction Score',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  '$count student feedback ratings received',
+                  style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500]),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                avgRating > 0 ? avgRating.toStringAsFixed(1) : 'N/A',
+                style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber[800]),
+              ),
+              Row(
+                children: List.generate(5, (i) => Icon(
+                  i < avgRating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: Colors.amber,
+                  size: 14,
+                )),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

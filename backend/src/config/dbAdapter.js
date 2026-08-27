@@ -93,6 +93,24 @@ const dbAdapter = {
         .single();
 
       if (error) throw new Error(error.message);
+
+      // Dual Sync to MongoDB
+      User.findOneAndUpdate(
+        { email: data.email },
+        {
+          name: data.name,
+          email: data.email,
+          password: payload.password,
+          role: data.role,
+          hostelBlock: data.hostel_block,
+          roomNumber: data.room_number,
+          phone: data.phone,
+          specialization: data.specialization,
+          isApproved: data.is_approved,
+        },
+        { upsert: true }
+      ).catch(() => {});
+
       return {
         _id: data.id,
         id: data.id,
@@ -128,6 +146,10 @@ const dbAdapter = {
         .single();
 
       if (error) throw new Error(error.message);
+
+      // Dual Sync to MongoDB
+      User.findOneAndUpdate({ email: data.email }, updateData).catch(() => {});
+
       return {
         _id: data.id,
         id: data.id,
@@ -200,6 +222,25 @@ const dbAdapter = {
 
       const { data, error } = await supabase.from('complaints').insert([payload]).select().single();
       if (error) throw new Error(error.message);
+
+      // Dual Sync to MongoDB
+      Complaint.findOneAndUpdate(
+        { complaintId: data.complaint_id },
+        {
+          complaintId: data.complaint_id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          priority: data.priority,
+          status: data.status,
+          location: data.location,
+          submittedBy: data.submitted_by,
+          images: data.images,
+          statusHistory: data.status_history,
+          createdAt: data.created_at,
+        },
+        { upsert: true }
+      ).catch(() => {});
 
       return {
         _id: data.id,
@@ -333,9 +374,183 @@ const dbAdapter = {
 
       const { data, error } = await supabase.from('complaints').update(payload).eq('id', id).select().single();
       if (error) throw new Error(error.message);
+
+      // Dual Sync to MongoDB
+      Complaint.findOneAndUpdate(
+        { $or: [{ _id: id }, { complaintId: id }] },
+        updateData
+      ).catch(() => {});
+
       return data;
     } else {
       return await Complaint.findByIdAndUpdate(id, updateData, { new: true });
+    }
+  },
+
+  async getAnalyticsDashboard() {
+    if (useSupabase()) {
+      const { data: users, error: uErr } = await supabase.from('users').select('*');
+      if (uErr) throw new Error(uErr.message);
+
+      const activeUsers = (users || []).filter((u) => u.is_approved !== false);
+      const activeUserIds = new Set(activeUsers.map((u) => u.id));
+
+      const { data: complaints, error: cErr } = await supabase.from('complaints').select('*');
+      if (cErr) throw new Error(cErr.message);
+
+      const filteredComplaints = (complaints || []).filter((c) => activeUserIds.has(c.submitted_by));
+
+      const totalComplaints = filteredComplaints.length;
+      const pending = filteredComplaints.filter((c) => c.status === 'pending').length;
+      const assigned = filteredComplaints.filter((c) => c.status === 'assigned').length;
+      const inProgress = filteredComplaints.filter((c) => c.status === 'in_progress').length;
+      const resolved = filteredComplaints.filter((c) => c.status === 'resolved').length;
+      const closed = filteredComplaints.filter((c) => c.status === 'closed').length;
+
+      const totalStudents = activeUsers.filter((u) => u.role === 'student').length;
+      const totalStaff = activeUsers.filter((u) => u.role === 'staff').length;
+
+      const catMap = {};
+      filteredComplaints.forEach((c) => {
+        const cat = c.category || 'other';
+        catMap[cat] = (catMap[cat] || 0) + 1;
+      });
+      const categoryDistribution = Object.keys(catMap)
+        .map((cat) => ({ _id: cat, count: catMap[cat] }))
+        .sort((a, b) => b.count - a.count);
+
+      const prioMap = {};
+      filteredComplaints.forEach((c) => {
+        const prio = c.priority || 'medium';
+        prioMap[prio] = (prioMap[prio] || 0) + 1;
+      });
+      const priorityDistribution = Object.keys(prioMap).map((prio) => ({
+        _id: prio,
+        count: prioMap[prio],
+      }));
+
+      const resTimes = filteredComplaints
+        .filter((c) => c.resolved_at)
+        .map((c) => new Date(c.resolved_at) - new Date(c.created_at));
+      const avgResMs = resTimes.length > 0 ? resTimes.reduce((a, b) => a + b, 0) / resTimes.length : 0;
+      const avgResolutionHours = Math.round(avgResMs / 3600000);
+
+      const trendMap = {};
+      filteredComplaints.forEach((c) => {
+        const d = new Date(c.created_at || Date.now());
+        const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+        trendMap[key] = (trendMap[key] || 0) + 1;
+      });
+      const monthlyTrend = Object.keys(trendMap).map((k) => {
+        const [year, month] = k.split('-').map(Number);
+        return { _id: { year, month }, count: trendMap[k] };
+      });
+
+      return {
+        overview: { totalComplaints, pending, assigned, inProgress, resolved, closed, totalStudents, totalStaff },
+        categoryDistribution,
+        priorityDistribution,
+        avgResolutionHours,
+        monthlyTrend,
+      };
+    } else {
+      const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+      const activeUserIds = activeUsers.map((u) => u._id);
+      const activeFilter = { submittedBy: { $in: activeUserIds } };
+
+      const [totalComplaints, pending, assigned, inProgress, resolved, closed, totalStudents, totalStaff] = await Promise.all([
+        Complaint.countDocuments(activeFilter),
+        Complaint.countDocuments({ ...activeFilter, status: 'pending' }),
+        Complaint.countDocuments({ ...activeFilter, status: 'assigned' }),
+        Complaint.countDocuments({ ...activeFilter, status: 'in_progress' }),
+        Complaint.countDocuments({ ...activeFilter, status: 'resolved' }),
+        Complaint.countDocuments({ ...activeFilter, status: 'closed' }),
+        User.countDocuments({ role: 'student', isActive: { $ne: false } }),
+        User.countDocuments({ role: 'staff', isActive: { $ne: false } }),
+      ]);
+
+      const categoryDist = await Complaint.aggregate([
+        { $match: activeFilter },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]);
+
+      const priorityDist = await Complaint.aggregate([
+        { $match: activeFilter },
+        { $group: { _id: '$priority', count: { $sum: 1 } } },
+      ]);
+
+      const avgResolution = await Complaint.aggregate([
+        { $match: { resolvedAt: { $exists: true } } },
+        { $project: { resTime: { $subtract: ['$resolvedAt', '$createdAt'] } } },
+        { $group: { _id: null, avg: { $avg: '$resTime' } } },
+      ]);
+      const avgResolutionHours = avgResolution.length > 0 ? Math.round(avgResolution[0].avg / 3600000) : 0;
+
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const monthlyTrend = await Complaint.aggregate([
+        { $match: { createdAt: { $gte: sixMonthsAgo } } },
+        { $group: { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, count: { $sum: 1 } } },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+      ]);
+
+      return {
+        overview: { totalComplaints, pending, assigned, inProgress, resolved, closed, totalStudents, totalStaff },
+        categoryDistribution: categoryDist,
+        priorityDistribution: priorityDist,
+        avgResolutionHours,
+        monthlyTrend,
+      };
+    }
+  },
+
+  async getStaffPerformance() {
+    if (useSupabase()) {
+      const { data: staff } = await supabase.from('users').select('*').eq('role', 'staff');
+      const { data: complaints } = await supabase.from('complaints').select('*');
+      const staffList = staff || [];
+      const complaintList = complaints || [];
+
+      return staffList.map((s) => {
+        const assigned = complaintList.filter((c) => c.assigned_to === s.id);
+        const resolved = assigned.filter((c) => (c.status === 'resolved' || c.status === 'closed') && c.resolved_at);
+        const ratings = assigned.filter((c) => c.feedback && c.feedback.rating).map((c) => c.feedback.rating);
+
+        const avgRating = ratings.length ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : (s.average_rating || 0);
+
+        return {
+          staff: { id: s.id, name: s.name, specialization: s.specialization },
+          totalAssigned: assigned.length,
+          totalResolved: resolved.length,
+          avgResolutionHours: 0,
+          avgRating,
+        };
+      });
+    } else {
+      const staff = await User.find({ role: 'staff', isActive: true });
+      return await Promise.all(staff.map(async (s) => {
+        const [total, resolved, avgRes] = await Promise.all([
+          Complaint.countDocuments({ assignedTo: s._id }),
+          Complaint.countDocuments({ assignedTo: s._id, status: { $in: ['resolved', 'closed'] }, resolvedAt: { $exists: true } }),
+          Complaint.aggregate([
+            { $match: { assignedTo: s._id, resolvedAt: { $exists: true } } },
+            { $project: { t: { $subtract: ['$resolvedAt', '$assignedAt'] } } },
+            { $group: { _id: null, avg: { $avg: '$t' } } },
+          ]),
+        ]);
+        const avgFeedback = await Complaint.aggregate([
+          { $match: { assignedTo: s._id, 'feedback.rating': { $exists: true } } },
+          { $group: { _id: null, avg: { $avg: '$feedback.rating' } } },
+        ]);
+        return {
+          staff: { id: s._id, name: s.name, specialization: s.specialization },
+          totalAssigned: total,
+          totalResolved: resolved,
+          avgResolutionHours: avgRes.length ? Math.round(avgRes[0].avg / 3600000) : 0,
+          avgRating: avgFeedback.length ? Math.round(avgFeedback[0].avg * 10) / 10 : (s.averageRating || 0),
+        };
+      }));
     }
   },
 };

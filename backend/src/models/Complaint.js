@@ -30,7 +30,7 @@ const complaintSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'assigned', 'in_progress', 'resolved', 'closed', 'rejected'],
+      enum: ['pending', 'assigned', 'in_progress', 'resolved', 'closed', 'rejected', 'withdrawn'],
       default: 'pending',
     },
     submittedBy: {
@@ -88,6 +88,20 @@ const complaintSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isCommonArea: {
+      type: Boolean,
+      default: false,
+    },
+    upvotedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    upvoteCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -115,6 +129,7 @@ complaintSchema.virtual('resolutionTime').get(function () {
 
 // Indexes for performance
 complaintSchema.index({ status: 1, category: 1 });
+complaintSchema.index({ isCommonArea: 1 });
 complaintSchema.index({ submittedBy: 1 });
 complaintSchema.index({ assignedTo: 1 });
 complaintSchema.index({ createdAt: -1 });

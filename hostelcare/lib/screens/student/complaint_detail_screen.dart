@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/complaint_provider.dart';
 
 class ComplaintDetailScreen extends StatefulWidget {
@@ -26,12 +27,16 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
           if (provider.isLoading) return const Center(child: CircularProgressIndicator());
           final c = provider.selectedComplaint;
           if (c == null) return const Center(child: Text('Not found'));
-          final statusColors = {'pending': Colors.orange, 'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green, 'closed': Colors.grey};
+          final statusColors = {'pending': Colors.orange, 'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green, 'closed': Colors.grey, 'withdrawn': Colors.grey[600]!};
           final sc = statusColors[c.status] ?? Colors.grey;
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               FadeInDown(child: _statusBanner(c, sc)),
+              if (c.isCommonArea) ...[
+                const SizedBox(height: 16),
+                FadeInUp(delay: const Duration(milliseconds: 50), child: _upvoteBanner(c)),
+              ],
               const SizedBox(height: 20),
               FadeInUp(delay: const Duration(milliseconds: 100), child: _infoSection(c)),
               const SizedBox(height: 16),
@@ -61,6 +66,50 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
             ]),
           );
         },
+      ),
+    );
+  }
+
+  Widget _upvoteBanner(c) {
+    final user = context.watch<AuthProvider>().user;
+    final isUpvoted = user != null && c.isUpvotedByMe(user.id);
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Card(
+      color: isUpvoted ? primary.withOpacity(0.1) : null,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.people_alt_rounded, color: primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Common Area Issue', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('${c.upvoteCount} student(s) upvoted / affected', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                ],
+              ),
+            ),
+            if (!['closed', 'rejected'].contains(c.status))
+              ElevatedButton.icon(
+                onPressed: () async {
+                  await context.read<ComplaintProvider>().toggleUpvote(c.id);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isUpvoted ? primary : Colors.white,
+                  foregroundColor: isUpvoted ? Colors.white : primary,
+                  elevation: isUpvoted ? 2 : 0,
+                  side: isUpvoted ? null : BorderSide(color: primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                icon: Icon(isUpvoted ? Icons.thumb_up_rounded : Icons.thumb_up_outlined, size: 16),
+                label: Text(isUpvoted ? 'Upvoted' : 'Upvote'),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -157,16 +206,29 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
   Widget _feedbackSection(c) {
     int rating = 0;
     final commentCtrl = TextEditingController();
+    final quickChips = ['Fast Repair ⚡', 'Polite Staff 😊', 'Thorough Work 👍', 'Clean Finish ✨'];
     return StatefulBuilder(builder: (context, setSt) {
       return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Rate Resolution', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+        Text('Rate Repair & Resolution Quality', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) => IconButton(
           icon: Icon(i < rating ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 36),
           onPressed: () => setSt(() => rating = i + 1),
         ))),
         const SizedBox(height: 8),
-        TextField(controller: commentCtrl, maxLines: 2, decoration: const InputDecoration(hintText: 'Add a comment...')),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: quickChips.map((chip) => ActionChip(
+            label: Text(chip, style: const TextStyle(fontSize: 12)),
+            onPressed: () {
+              final currentText = commentCtrl.text;
+              commentCtrl.text = currentText.isEmpty ? chip : '$currentText, $chip';
+            },
+          )).toList(),
+        ),
+        const SizedBox(height: 8),
+        TextField(controller: commentCtrl, maxLines: 2, decoration: const InputDecoration(hintText: 'Add additional feedback notes...')),
         const SizedBox(height: 12),
         SizedBox(width: double.infinity, child: ElevatedButton(
           onPressed: rating > 0 ? () async {
