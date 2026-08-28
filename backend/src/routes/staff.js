@@ -2,6 +2,7 @@ const router = require('express').Router();
 const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const dbAdapter = require('../config/dbAdapter');
 const { protect, authorize } = require('../middleware/auth');
 const { upload } = require('../config/cloudinary');
 const { sendPushNotification } = require('../config/firebase');
@@ -12,91 +13,158 @@ router.use(protect, authorize('staff'));
 router.get('/assignments', async (req, res, next) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    
-    // Exclude complaints submitted by deactivated users
-    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
-    const activeUserIds = activeUsers.map((u) => u._id);
-    const filter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
+
+    const filter = { assignedTo: req.user.id };
     if (status === 'resolved') {
       filter.status = { $in: ['resolved', 'closed'] };
     } else if (status) {
       filter.status = status;
     }
 
-    const total = await Complaint.countDocuments(filter);
-    const complaints = await Complaint.find(filter)
-      .populate('submittedBy', 'name email hostelBlock roomNumber')
-      .sort('-createdAt')
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    let complaints;
+    let total;
 
-    res.json({ success: true, data: complaints, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
-  } catch (error) { next(error); }
+    if (dbAdapter.useSupabase()) {
+      complaints = await dbAdapter.findComplaints(filter, { page: parseInt(page), limit: parseInt(limit) });
+      total = complaints.length;
+    } else {
+      const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+      const activeUserIds = activeUsers.map((u) => u._id);
+      const mongoFilter = { ...filter, submittedBy: { $in: activeUserIds } };
+      total = await Complaint.countDocuments(mongoFilter);
+      complaints = await Complaint.find(mongoFilter)
+        .populate('submittedBy', 'name email hostelBlock roomNumber')
+        .sort('-createdAt')
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
+
+    res.json({
+      success: true,
+      data: complaints,
+      pagination: { total, page: parseInt(page), pages: Math.ceil(total / (parseInt(limit) || 20)) },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // PUT /api/staff/assignments/:id/status
 router.put('/assignments/:id/status', async (req, res, next) => {
   try {
     const { status, notes } = req.body;
-    const complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
-    if (!complaint) return res.status(404).json({ success: false, message: 'Assignment not found' });
+    let complaint;
 
-    complaint.status = status;
-    complaint.statusHistory.push({ status, changedBy: req.user.id, notes: notes || `Status: ${status}` });
-    if (status === 'resolved') complaint.resolvedAt = new Date();
-    if (notes) complaint.resolutionNotes = notes;
-    await complaint.save();
-    await complaint.populate('submittedBy', 'name email fcmToken');
+    if (dbAdapter.useSupabase()) {
+      complaint = await dbAdapter.findComplaintById(req.params.id);
+      if (!complaint) return res.status(404).json({ success: false, message: 'Assignment not found' });
 
-    await Notification.create({
-      recipient: complaint.submittedBy._id,
-      title: 'Status Update',
-      body: `"${complaint.title}" is now ${status.replace('_', ' ')}`,
-      type: 'complaint_update',
-      relatedComplaint: complaint._id,
-    });
+      const history = complaint.statusHistory || [];
+      history.push({ status, changedBy: req.user.id, notes: notes || `Status: ${status}`, timestamp: new Date() });
 
-    if (complaint.submittedBy.fcmToken) {
-      await sendPushNotification(complaint.submittedBy.fcmToken, 'Update', `Complaint is now ${status.replace('_', ' ')}`);
+      const updatePayload = {
+        status,
+        status_history: history,
+      };
+      if (status === 'resolved') updatePayload.resolved_at = new Date();
+      if (notes) updatePayload.resolution_notes = notes;
+
+      await dbAdapter.supabase.from('complaints').update(updatePayload).eq('id', req.params.id);
+      complaint = await dbAdapter.findComplaintById(req.params.id);
+    } else {
+      complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
+      if (!complaint) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+      complaint.status = status;
+      complaint.statusHistory.push({ status, changedBy: req.user.id, notes: notes || `Status: ${status}` });
+      if (status === 'resolved') complaint.resolvedAt = new Date();
+      if (notes) complaint.resolutionNotes = notes;
+      await complaint.save();
+      await complaint.populate('submittedBy', 'name email fcmToken');
     }
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
-    }
+    try {
+      const submitterId = complaint.submittedBy?._id || complaint.submittedBy?.id;
+      if (submitterId) {
+        await Notification.create({
+          recipient: submitterId,
+          title: 'Status Update',
+          body: `"${complaint.title}" is now ${status.replace('_', ' ')}`,
+          type: 'complaint_update',
+          relatedComplaint: complaint._id || complaint.id,
+        }).catch(() => {});
+      }
+    } catch (_) {}
 
     res.json({ success: true, data: complaint });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // POST /api/staff/assignments/:id/completion-images
 router.post('/assignments/:id/completion-images', upload.array('images', 3), async (req, res, next) => {
   try {
-    const complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
-    if (!complaint) return res.status(404).json({ success: false, message: 'Not found' });
+    let complaint;
+    if (dbAdapter.useSupabase()) {
+      complaint = await dbAdapter.findComplaintById(req.params.id);
+      if (!complaint) return res.status(404).json({ success: false, message: 'Not found' });
+      const images = req.files.map((f) => ({ url: f.path, publicId: f.filename }));
+      const existing = complaint.completionImages || [];
+      const updated = [...existing, ...images];
+      await dbAdapter.supabase.from('complaints').update({ completion_images: updated }).eq('id', req.params.id);
+      complaint.completionImages = updated;
+    } else {
+      complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
+      if (!complaint) return res.status(404).json({ success: false, message: 'Not found' });
 
-    const images = req.files.map((f) => ({ url: f.path, publicId: f.filename }));
-    complaint.completionImages.push(...images);
-    await complaint.save();
+      const images = req.files.map((f) => ({ url: f.path, publicId: f.filename }));
+      complaint.completionImages.push(...images);
+      await complaint.save();
+    }
 
     res.json({ success: true, data: complaint });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/staff/stats
 router.get('/stats', async (req, res, next) => {
   try {
-    const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
-    const activeUserIds = activeUsers.map((u) => u._id);
-    const baseFilter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
+    let assigned = 0;
+    let inProgress = 0;
+    let resolved = 0;
+    let averageRating = 0;
+    let totalRatingsCount = 0;
 
-    const userDoc = await User.findById(req.user.id).select('averageRating totalRatingsCount');
+    if (dbAdapter.useSupabase()) {
+      const allAssigned = await dbAdapter.findComplaints({ assignedTo: req.user.id });
+      assigned = allAssigned.filter((c) => c.status === 'assigned').length;
+      inProgress = allAssigned.filter((c) => c.status === 'in_progress').length;
+      resolved = allAssigned.filter((c) => ['resolved', 'closed'].includes(c.status)).length;
 
-    const [assigned, inProgress, resolved] = await Promise.all([
-      Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
-      Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
-      Complaint.countDocuments({ ...baseFilter, status: { $in: ['resolved', 'closed'] } }),
-    ]);
+      const { data: userDoc } = await dbAdapter.supabase.from('users').select('average_rating, total_ratings_count').eq('id', req.user.id).single();
+      if (userDoc) {
+        averageRating = userDoc.average_rating || 0;
+        totalRatingsCount = userDoc.total_ratings_count || 0;
+      }
+    } else {
+      const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
+      const activeUserIds = activeUsers.map((u) => u._id);
+      const baseFilter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
+
+      const userDoc = await User.findById(req.user.id).select('averageRating totalRatingsCount');
+
+      [assigned, inProgress, resolved] = await Promise.all([
+        Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
+        Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
+        Complaint.countDocuments({ ...baseFilter, status: { $in: ['resolved', 'closed'] } }),
+      ]);
+      averageRating = userDoc?.averageRating || 0;
+      totalRatingsCount = userDoc?.totalRatingsCount || 0;
+    }
+
     res.json({
       success: true,
       data: {
@@ -104,11 +172,13 @@ router.get('/stats', async (req, res, next) => {
         inProgress,
         resolved,
         total: assigned + inProgress + resolved,
-        averageRating: userDoc?.averageRating || 0,
-        totalRatingsCount: userDoc?.totalRatingsCount || 0,
+        averageRating,
+        totalRatingsCount,
       },
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;
