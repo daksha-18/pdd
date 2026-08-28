@@ -17,7 +17,11 @@ router.get('/assignments', async (req, res, next) => {
     const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
     const activeUserIds = activeUsers.map((u) => u._id);
     const filter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
-    if (status) filter.status = status;
+    if (status === 'resolved') {
+      filter.status = { $in: ['resolved', 'closed'] };
+    } else if (status) {
+      filter.status = status;
+    }
 
     const total = await Complaint.countDocuments(filter);
     const complaints = await Complaint.find(filter)
@@ -57,7 +61,9 @@ router.put('/assignments/:id/status', async (req, res, next) => {
     }
 
     const io = req.app.get('io');
-    io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
+    if (io) {
+      io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
+    }
 
     res.json({ success: true, data: complaint });
   } catch (error) { next(error); }
@@ -89,7 +95,7 @@ router.get('/stats', async (req, res, next) => {
     const [assigned, inProgress, resolved] = await Promise.all([
       Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
       Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
-      Complaint.countDocuments({ ...baseFilter, status: 'resolved' }),
+      Complaint.countDocuments({ ...baseFilter, status: { $in: ['resolved', 'closed'] } }),
     ]);
     res.json({
       success: true,

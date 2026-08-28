@@ -166,6 +166,7 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
                 color: Colors.transparent,
                 child: TabBar(
                   controller: _tabCtrl,
+                  onTap: (_) => _load(),
                   indicatorColor: Colors.white,
                   indicatorWeight: 3,
                   labelColor: Colors.white,
@@ -220,7 +221,8 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
     final statusColors = {
       'assigned': const Color(0xFF3B82F6),
       'in_progress': const Color(0xFF6366F1),
-      'resolved': const Color(0xFF10B981)
+      'resolved': const Color(0xFF10B981),
+      'closed': const Color(0xFF10B981)
     };
     final priorityColors = {
       'low': const Color(0xFF10B981),

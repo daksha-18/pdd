@@ -127,8 +127,10 @@ router.put('/complaints/:id/assign', async (req, res, next) => {
     if (staff.fcmToken) await sendPushNotification(staff.fcmToken, 'New Assignment', `"${complaint.title}"`);
 
     const io = req.app.get('io');
-    io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
-    io.to(staffId).emit('new_assignment', complaint);
+    if (io) {
+      io.to(complaint.submittedBy._id.toString()).emit('complaint_update', complaint);
+      io.to(staffId).emit('new_assignment', complaint);
+    }
 
     res.json({ success: true, data: complaint });
   } catch (error) { next(error); }

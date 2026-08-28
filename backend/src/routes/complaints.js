@@ -109,7 +109,11 @@ router.get('/', protect, async (req, res, next) => {
       filter.submittedBy = { $in: activeUsers.map((u) => u._id) };
     }
 
-    if (status) filter.status = status;
+    if (status === 'resolved') {
+      filter.status = { $in: ['resolved', 'closed'] };
+    } else if (status) {
+      filter.status = status;
+    }
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
 
