@@ -27,7 +27,21 @@ class AuthProvider extends ChangeNotifier {
     if (_token != null && userData != null) {
       _user = UserModel.fromJson(jsonDecode(userData));
       notifyListeners();
+      fetchProfile();
     }
+  }
+
+  Future<void> fetchProfile() async {
+    if (_token == null) return;
+    try {
+      final res = await ApiService.get('${ApiConstants.auth}/me');
+      if (res['data'] != null) {
+        _user = UserModel.fromJson(res['data']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(AppConstants.userKey, jsonEncode(_user!.toJson()));
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   Future<bool> register(String name, String email, String password, {String? phone, String? hostelBlock, String? roomNumber, String? role, String? specialization}) async {
@@ -80,6 +94,7 @@ class AuthProvider extends ChangeNotifier {
     await prefs.setString(AppConstants.userKey, jsonEncode(_user!.toJson()));
     _isLoading = false;
     notifyListeners();
+    fetchProfile();
   }
 
   Future<void> logout() async {

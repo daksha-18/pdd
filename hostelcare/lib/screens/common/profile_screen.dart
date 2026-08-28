@@ -115,11 +115,11 @@ class ProfileScreen extends StatelessWidget {
             FadeInUp(
               delay: const Duration(milliseconds: 200),
               child: _buildSection(context, [
-                _infoTile(Icons.apartment_rounded, 'Hostel Block', user?.hostelBlock ?? 'Not set', isDark),
+                _infoTile(Icons.apartment_rounded, 'Hostel Block', (user?.hostelBlock != null && user!.hostelBlock!.isNotEmpty) ? user.hostelBlock! : 'Not set', isDark),
                 const Divider(indent: 56, height: 1),
-                _infoTile(Icons.meeting_room_rounded, 'Room Number', user?.roomNumber ?? 'Not set', isDark),
+                _infoTile(Icons.meeting_room_rounded, 'Room Number', (user?.roomNumber != null && user!.roomNumber!.isNotEmpty) ? user.roomNumber! : 'Not set', isDark),
                 const Divider(indent: 56, height: 1),
-                _infoTile(Icons.phone_iphone_rounded, 'Phone', user?.phone ?? 'Not set', isDark),
+                _infoTile(Icons.phone_iphone_rounded, 'Phone', (user?.phone != null && user!.phone!.isNotEmpty) ? user.phone! : 'Not set', isDark),
               ], isDark),
             ),
             const SizedBox(height: 24),

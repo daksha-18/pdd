@@ -119,6 +119,8 @@ const dbAdapter = {
         role: data.role,
         hostelBlock: data.hostel_block,
         roomNumber: data.room_number,
+        phone: data.phone,
+        specialization: data.specialization,
       };
     } else {
       return await User.create(userData);
