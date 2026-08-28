@@ -218,7 +218,6 @@ const dbAdapter = {
         location: complaintData.location || {},
         submitted_by: complaintData.submittedBy,
         qr_scanned: complaintData.qrScanned || false,
-        is_common_area: complaintData.isCommonArea || false,
         images: complaintData.images || [],
         status_history: [{ status: 'pending', notes: 'Complaint submitted', timestamp: new Date() }],
       };
@@ -236,12 +235,20 @@ const dbAdapter = {
 
       try {
         const { data: sStaff } = await supabase.from('users').select('*').eq('role', 'staff');
-        let eligible = (sStaff || []).filter((s) => s.is_approved !== false && s.specialization === spec);
-        if (eligible.length === 0) eligible = (sStaff || []).filter((s) => s.is_approved !== false && s.specialization === 'general');
+        const { data: allComplaints } = await supabase.from('complaints').select('*');
+        let eligible = (sStaff || []).filter((s) => s.is_approved !== false && (s.specialization || '').toLowerCase() === spec);
+        if (eligible.length === 0) eligible = (sStaff || []).filter((s) => s.is_approved !== false && (s.specialization || '').toLowerCase() === 'general');
         if (eligible.length === 0) eligible = (sStaff || []).filter((s) => s.is_approved !== false);
 
         if (eligible.length > 0) {
-          const chosen = eligible[0];
+          const activeComplaints = allComplaints || [];
+          const workloads = eligible.map((s) => {
+            const count = activeComplaints.filter((c) => c.assigned_to === s.id && ['assigned', 'in_progress'].includes(c.status)).length;
+            return { staff: s, count };
+          });
+          workloads.sort((a, b) => a.count - b.count);
+          const chosen = workloads[0].staff;
+
           payload.assigned_to = chosen.id;
           payload.status = 'assigned';
           payload.status_history.push({
@@ -250,7 +257,9 @@ const dbAdapter = {
             timestamp: new Date(),
           });
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('Auto assign error:', err.message);
+      }
 
       const { data, error } = await supabase.from('complaints').insert([payload]).select('*, submitted_by(*), assigned_to(*)').single();
       if (error) throw new Error(error.message);
@@ -266,7 +275,8 @@ const dbAdapter = {
           priority: data.priority,
           status: data.status,
           location: data.location,
-          submittedBy: data.submitted_by,
+          submittedBy: data.submitted_by?.id || data.submitted_by,
+          assignedTo: data.assigned_to?.id || data.assigned_to,
           images: data.images,
           statusHistory: data.status_history,
           createdAt: data.created_at,
@@ -284,8 +294,20 @@ const dbAdapter = {
         priority: data.priority,
         status: data.status,
         location: data.location,
-        submittedBy: data.submitted_by,
-        images: data.images,
+        submittedBy: data.submitted_by ? {
+          _id: data.submitted_by.id,
+          id: data.submitted_by.id,
+          name: data.submitted_by.name,
+          email: data.submitted_by.email,
+        } : null,
+        assignedTo: data.assigned_to ? {
+          _id: data.assigned_to.id,
+          id: data.assigned_to.id,
+          name: data.assigned_to.name,
+          specialization: data.assigned_to.specialization,
+        } : null,
+        images: data.images || [],
+        statusHistory: data.status_history || [],
         createdAt: data.created_at,
       };
     } else {
@@ -442,7 +464,7 @@ const dbAdapter = {
       const pending = filteredComplaints.filter((c) => c.status === 'pending').length;
       const assigned = filteredComplaints.filter((c) => c.status === 'assigned').length;
       const inProgress = filteredComplaints.filter((c) => c.status === 'in_progress').length;
-      const resolved = filteredComplaints.filter((c) => c.status === 'resolved').length;
+      const resolved = filteredComplaints.filter((c) => ['resolved', 'closed'].includes(c.status)).length;
       const closed = filteredComplaints.filter((c) => c.status === 'closed').length;
 
       const totalStudents = activeUsers.filter((u) => u.role === 'student').length;
@@ -501,7 +523,7 @@ const dbAdapter = {
         Complaint.countDocuments({ ...activeFilter, status: 'pending' }),
         Complaint.countDocuments({ ...activeFilter, status: 'assigned' }),
         Complaint.countDocuments({ ...activeFilter, status: 'in_progress' }),
-        Complaint.countDocuments({ ...activeFilter, status: 'resolved' }),
+        Complaint.countDocuments({ ...activeFilter, status: { $in: ['resolved', 'closed'] } }),
         Complaint.countDocuments({ ...activeFilter, status: 'closed' }),
         User.countDocuments({ role: 'student', isActive: { $ne: false } }),
         User.countDocuments({ role: 'staff', isActive: { $ne: false } }),

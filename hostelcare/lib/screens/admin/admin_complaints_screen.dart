@@ -244,25 +244,48 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
                   ],
                 ),
               ),
+            if (c['assignedTo'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.indigo.withOpacity(0.15) : const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? Colors.indigo.withOpacity(0.3) : const Color(0xFFC7D2FE)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.engineering_rounded, size: 14, color: isDark ? Colors.indigo[300] : const Color(0xFF4F46E5)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Auto-Assigned: ${c['assignedTo']['name']} (${c['assignedTo']['specialization'] ?? 'Staff'})',
+                        style: GoogleFonts.inter(fontSize: 12, color: isDark ? Colors.indigo[200] : const Color(0xFF4338CA), fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const Divider(height: 32),
             Row(
               children: [
-                if (c['status'] == 'pending') ...[
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.assignment_ind_rounded, size: 18),
-                      label: Text('Assign Staff', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                      onPressed: () => _assignComplaint(c['_id']),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: Icon(c['assignedTo'] != null ? Icons.swap_horiz_rounded : Icons.assignment_ind_rounded, size: 18),
+                    label: Text(c['assignedTo'] != null ? 'Reassign' : 'Assign Staff', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    onPressed: () => _assignComplaint(c['_id']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: c['assignedTo'] != null ? (isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)) : const Color(0xFF6366F1),
+                      foregroundColor: c['assignedTo'] != null ? (isDark ? Colors.white : const Color(0xFF334155)) : Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                ],
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
                     icon: Icon(Icons.flag_rounded, size: 18, color: {'low': Colors.green, 'medium': Colors.orange, 'high': Colors.deepOrange, 'urgent': Colors.red}[c['priority']] ?? Colors.grey),

@@ -142,7 +142,13 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  '${_assignments.length} tasks assigned to you',
+                                  _tabCtrl.index == 1
+                                      ? '${_assignments.length} assigned tasks'
+                                      : _tabCtrl.index == 2
+                                          ? '${_assignments.length} in-progress tasks'
+                                          : _tabCtrl.index == 3
+                                              ? '${_assignments.length} resolved tasks'
+                                              : '${_assignments.length} total tasks',
                                   style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -290,16 +296,33 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: pc.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    (c['priority'] ?? '').toString().toUpperCase(),
-                    style: GoogleFonts.outfit(color: pc, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: sc.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        (c['status'] ?? '').toString().replaceAll('_', ' ').toUpperCase(),
+                        style: GoogleFonts.outfit(color: sc, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: pc.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        (c['priority'] ?? '').toString().toUpperCase(),
+                        style: GoogleFonts.outfit(color: pc, fontSize: 9, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

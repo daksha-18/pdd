@@ -132,11 +132,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _overviewCards() {
     final o = _data?['overview'] ?? {};
+    final resolvedVal = (o['resolved'] != null && (o['resolved'] as num) > 0)
+        ? (o['resolved'] as num).toInt()
+        : ((o['resolved'] ?? 0) + (o['closed'] ?? 0));
     final items = [
       {'label': 'Total', 'value': '${o['totalComplaints'] ?? 0}', 'icon': Icons.receipt_long_rounded, 'color': const Color(0xFF6366F1)},
       {'label': 'Pending', 'value': '${o['pending'] ?? 0}', 'icon': Icons.hourglass_empty_rounded, 'color': const Color(0xFFF59E0B)},
       {'label': 'Active', 'value': '${(o['assigned'] ?? 0) + (o['inProgress'] ?? 0)}', 'icon': Icons.engineering_rounded, 'color': const Color(0xFF3B82F6)},
-      {'label': 'Resolved', 'value': '${o['resolved'] ?? 0}', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
+      {'label': 'Resolved', 'value': '$resolvedVal', 'icon': Icons.check_circle_rounded, 'color': const Color(0xFF10B981)},
     ];
 
     final width = MediaQuery.of(context).size.width;

@@ -78,7 +78,11 @@ router.get('/complaints', async (req, res, next) => {
   try {
     const { status, category, priority, search, page = 1, limit = 20, sort = '-createdAt' } = req.query;
     const filter = {};
-    if (status) filter.status = status;
+    if (status === 'resolved') {
+      filter.status = { $in: ['resolved', 'closed'] };
+    } else if (status) {
+      filter.status = status;
+    }
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
     if (search) {

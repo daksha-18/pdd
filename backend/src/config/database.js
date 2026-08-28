@@ -69,11 +69,12 @@ const syncSupabaseToMongo = async () => {
 const autoAssignPendingComplaints = async () => {
   try {
     if (supabase) {
-      const { data: pendingComplaints } = await supabase.from('complaints').select('*').or('status.eq.pending,assigned_to.is.null');
+      const { data: allComplaints } = await supabase.from('complaints').select('*');
+      const pendingComplaints = (allComplaints || []).filter((c) => c.status === 'pending' || !c.assigned_to);
       const { data: sStaff } = await supabase.from('users').select('*').eq('role', 'staff');
       const staffList = sStaff || [];
 
-      if (pendingComplaints && pendingComplaints.length > 0 && staffList.length > 0) {
+      if (pendingComplaints.length > 0 && staffList.length > 0) {
         for (const c of pendingComplaints) {
           const mapCat = (cat) => {
             const k = (cat || '').toLowerCase();
@@ -84,12 +85,18 @@ const autoAssignPendingComplaints = async () => {
             return 'general';
           };
           const target = mapCat(c.category);
-          let eligible = staffList.filter((s) => s.is_approved !== false && s.specialization === target);
-          if (eligible.length === 0) eligible = staffList.filter((s) => s.is_approved !== false && s.specialization === 'general');
+          let eligible = staffList.filter((s) => s.is_approved !== false && (s.specialization || '').toLowerCase() === target);
+          if (eligible.length === 0) eligible = staffList.filter((s) => s.is_approved !== false && (s.specialization || '').toLowerCase() === 'general');
           if (eligible.length === 0) eligible = staffList.filter((s) => s.is_approved !== false);
 
           if (eligible.length > 0) {
-            const chosen = eligible[0];
+            const workloads = eligible.map((s) => {
+              const count = (allComplaints || []).filter((ac) => ac.assigned_to === s.id && ['assigned', 'in_progress'].includes(ac.status)).length;
+              return { staff: s, count };
+            });
+            workloads.sort((a, b) => a.count - b.count);
+            const chosen = workloads[0].staff;
+
             const history = c.status_history || [];
             history.push({
               status: 'assigned',
