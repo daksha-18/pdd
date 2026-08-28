@@ -6,7 +6,95 @@ const dbAdapter = require('../config/dbAdapter');
 const { protect, authorize } = require('../middleware/auth');
 const { complaintValidation } = require('../middleware/validate');
 const { upload } = require('../config/cloudinary');
-const { sendPushNotification } = require('../config/firebase');
+const mapCategoryToSpec = (cat) => {
+  const c = (cat || '').toLowerCase();
+  if (c === 'water' || c === 'plumbing') return 'plumbing';
+  if (c === 'electrical') return 'electrical';
+  if (c === 'internet' || c === 'wifi') return 'internet';
+  if (c === 'cleaning' || c === 'housekeeping') return 'cleaning';
+  return 'general';
+};
+
+const autoAssignDepartmentStaff = async (complaint, userId, io) => {
+  try {
+    const targetSpec = mapCategoryToSpec(complaint.category);
+
+    let candidateStaff = await User.find({
+      role: 'staff',
+      isActive: { $ne: false },
+      specialization: targetSpec,
+    });
+
+    if (candidateStaff.length === 0) {
+      candidateStaff = await User.find({
+        role: 'staff',
+        isActive: { $ne: false },
+        specialization: 'general',
+      });
+    }
+
+    if (candidateStaff.length === 0) {
+      candidateStaff = await User.find({
+        role: 'staff',
+        isActive: { $ne: false },
+      });
+    }
+
+    if (candidateStaff.length > 0) {
+      const workloads = await Promise.all(
+        candidateStaff.map(async (s) => {
+          const count = await Complaint.countDocuments({
+            assignedTo: s._id,
+            status: { $in: ['assigned', 'in_progress'] },
+          });
+          return { staff: s, count };
+        })
+      );
+
+      workloads.sort((a, b) => a.count - b.count);
+      const chosenStaff = workloads[0].staff;
+
+      complaint.assignedTo = chosenStaff._id;
+      complaint.status = 'assigned';
+      complaint.assignedAt = new Date();
+      complaint.statusHistory.push({
+        status: 'assigned',
+        changedBy: userId,
+        notes: `Auto-assigned to ${chosenStaff.name} (${chosenStaff.specialization || 'Department Staff'}) based on category (${complaint.category})`,
+        timestamp: new Date(),
+      });
+
+      await complaint.save();
+      await complaint.populate('assignedTo', 'name email specialization');
+
+      try {
+        const autoNotif = await Notification.create({
+          recipient: chosenStaff._id,
+          title: `⚡ Complaint Auto-Assigned: ${complaint.complaintId || complaint._id}`,
+          message: `New ${complaint.category} complaint "${complaint.title}" auto-assigned to you.`,
+          type: 'status_change',
+          relatedComplaint: complaint._id,
+        });
+
+        if (io) {
+          io.to(chosenStaff._id.toString()).emit('new_notification', autoNotif);
+          io.to(chosenStaff._id.toString()).emit('complaint_assigned', complaint);
+        }
+
+        if (chosenStaff.fcmToken) {
+          sendPushNotification(
+            chosenStaff.fcmToken,
+            `⚡ Auto-Assigned: ${complaint.title}`,
+            `New ${complaint.category} issue.`
+          ).catch(() => {});
+        }
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.error('autoAssignDepartmentStaff error:', err);
+  }
+  return complaint;
+};
 
 // @route   POST /api/complaints
 // @desc    Submit a new complaint
@@ -79,90 +167,8 @@ router.post('/', protect, upload.array('images', 3), async (req, res, next) => {
 
       await complaint.populate('submittedBy', 'name email');
 
-      // --- AUTO-ASSIGNMENT TO DEPARTMENT STAFF ---
-      const mapCategoryToSpec = (cat) => {
-        const c = (cat || '').toLowerCase();
-        if (c === 'water' || c === 'plumbing') return 'plumbing';
-        if (c === 'electrical') return 'electrical';
-        if (c === 'internet' || c === 'wifi') return 'internet';
-        if (c === 'cleaning' || c === 'housekeeping') return 'cleaning';
-        return 'general';
-      };
-
-      const targetSpec = mapCategoryToSpec(category);
-
-      let candidateStaff = await User.find({
-        role: 'staff',
-        isActive: { $ne: false },
-        specialization: targetSpec,
-      });
-
-      if (candidateStaff.length === 0) {
-        candidateStaff = await User.find({
-          role: 'staff',
-          isActive: { $ne: false },
-          specialization: 'general',
-        });
-      }
-
-      if (candidateStaff.length === 0) {
-        candidateStaff = await User.find({
-          role: 'staff',
-          isActive: { $ne: false },
-        });
-      }
-
-      if (candidateStaff.length > 0) {
-        const workloads = await Promise.all(
-          candidateStaff.map(async (s) => {
-            const count = await Complaint.countDocuments({
-              assignedTo: s._id,
-              status: { $in: ['assigned', 'in_progress'] },
-            });
-            return { staff: s, count };
-          })
-        );
-
-        workloads.sort((a, b) => a.count - b.count);
-        const chosenStaff = workloads[0].staff;
-
-        complaint.assignedTo = chosenStaff._id;
-        complaint.status = 'assigned';
-        complaint.assignedAt = new Date();
-        complaint.statusHistory.push({
-          status: 'assigned',
-          changedBy: req.user.id,
-          notes: `Auto-assigned to ${chosenStaff.name} (${chosenStaff.specialization || 'Department Staff'}) based on category (${category})`,
-          timestamp: new Date(),
-        });
-
-        await complaint.save();
-        await complaint.populate('assignedTo', 'name email specialization');
-
-        try {
-          const autoNotif = await Notification.create({
-            recipient: chosenStaff._id,
-            title: `⚡ Complaint Auto-Assigned: ${complaint.complaintId || complaint._id}`,
-            message: `New ${category} complaint "${complaint.title}" auto-assigned to you.`,
-            type: 'status_change',
-            relatedComplaint: complaint._id,
-          });
-
-          const io = req.app.get('io');
-          if (io) {
-            io.to(chosenStaff._id.toString()).emit('new_notification', autoNotif);
-            io.to(chosenStaff._id.toString()).emit('complaint_assigned', complaint);
-          }
-
-          if (chosenStaff.fcmToken) {
-            sendPushNotification(
-              chosenStaff.fcmToken,
-              `⚡ Auto-Assigned: ${complaint.title}`,
-              `New ${category} issue in room ${parsedLocation.roomNumber || ''}.`
-            ).catch(() => {});
-          }
-        } catch (_) {}
-      }
+      const io = req.app.get('io');
+      await autoAssignDepartmentStaff(complaint, req.user.id, io);
     }
 
     // Emit real-time event
@@ -458,6 +464,7 @@ router.post('/sync', protect, async (req, res, next) => {
   try {
     const { complaints } = req.body;
     const synced = [];
+    const io = req.app.get('io');
 
     for (const c of complaints) {
       const complaint = await Complaint.create({
@@ -468,6 +475,7 @@ router.post('/sync', protect, async (req, res, next) => {
           { status: 'pending', changedBy: req.user.id, notes: 'Synced from offline' },
         ],
       });
+      await autoAssignDepartmentStaff(complaint, req.user.id, io);
       synced.push(complaint);
     }
 

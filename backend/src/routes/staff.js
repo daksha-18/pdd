@@ -9,31 +9,48 @@ const { sendPushNotification } = require('../config/firebase');
 
 router.use(protect, authorize('staff'));
 
+const getCategoriesForStaffSpec = (spec) => {
+  const s = (spec || '').toLowerCase();
+  if (s === 'electrical') return ['electrical'];
+  if (s === 'plumbing') return ['water', 'plumbing'];
+  if (s === 'internet') return ['internet', 'wifi'];
+  if (s === 'cleaning') return ['cleaning', 'housekeeping'];
+  return ['furniture', 'security', 'other'];
+};
+
 // GET /api/staff/assignments
 router.get('/assignments', async (req, res, next) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
+    const specCategories = getCategoriesForStaffSpec(req.user.specialization);
 
-    const filter = { assignedTo: req.user.id };
+    const baseFilter = {
+      $or: [
+        { assignedTo: req.user.id },
+        { category: { $in: specCategories } },
+      ],
+    };
+
     if (status === 'resolved') {
-      filter.status = { $in: ['resolved', 'closed'] };
+      baseFilter.status = { $in: ['resolved', 'closed'] };
     } else if (status) {
-      filter.status = status;
+      baseFilter.status = status;
     }
 
     let complaints;
     let total;
 
     if (dbAdapter.useSupabase()) {
-      complaints = await dbAdapter.findComplaints(filter, { page: parseInt(page), limit: parseInt(limit) });
+      complaints = await dbAdapter.findComplaints({ ...baseFilter, staffUser: req.user }, { page: parseInt(page), limit: parseInt(limit) });
       total = complaints.length;
     } else {
       const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
       const activeUserIds = activeUsers.map((u) => u._id);
-      const mongoFilter = { ...filter, submittedBy: { $in: activeUserIds } };
+      const mongoFilter = { ...baseFilter, submittedBy: { $in: activeUserIds } };
       total = await Complaint.countDocuments(mongoFilter);
       complaints = await Complaint.find(mongoFilter)
         .populate('submittedBy', 'name email hostelBlock roomNumber')
+        .populate('assignedTo', 'name email specialization')
         .sort('-createdAt')
         .skip((page - 1) * limit)
         .limit(parseInt(limit));
@@ -64,6 +81,7 @@ router.put('/assignments/:id/status', async (req, res, next) => {
 
       const updatePayload = {
         status,
+        assigned_to: req.user.id,
         status_history: history,
       };
       if (status === 'resolved') updatePayload.resolved_at = new Date();
@@ -72,15 +90,17 @@ router.put('/assignments/:id/status', async (req, res, next) => {
       await dbAdapter.supabase.from('complaints').update(updatePayload).eq('id', req.params.id);
       complaint = await dbAdapter.findComplaintById(req.params.id);
     } else {
-      complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
+      complaint = await Complaint.findById(req.params.id);
       if (!complaint) return res.status(404).json({ success: false, message: 'Assignment not found' });
 
       complaint.status = status;
+      complaint.assignedTo = req.user.id;
       complaint.statusHistory.push({ status, changedBy: req.user.id, notes: notes || `Status: ${status}` });
       if (status === 'resolved') complaint.resolvedAt = new Date();
       if (notes) complaint.resolutionNotes = notes;
       await complaint.save();
       await complaint.populate('submittedBy', 'name email fcmToken');
+      await complaint.populate('assignedTo', 'name email specialization');
     }
 
     try {
@@ -115,7 +135,7 @@ router.post('/assignments/:id/completion-images', upload.array('images', 3), asy
       await dbAdapter.supabase.from('complaints').update({ completion_images: updated }).eq('id', req.params.id);
       complaint.completionImages = updated;
     } else {
-      complaint = await Complaint.findOne({ _id: req.params.id, assignedTo: req.user.id });
+      complaint = await Complaint.findById(req.params.id);
       if (!complaint) return res.status(404).json({ success: false, message: 'Not found' });
 
       const images = req.files.map((f) => ({ url: f.path, publicId: f.filename }));
@@ -137,9 +157,10 @@ router.get('/stats', async (req, res, next) => {
     let resolved = 0;
     let averageRating = 0;
     let totalRatingsCount = 0;
+    const specCategories = getCategoriesForStaffSpec(req.user.specialization);
 
     if (dbAdapter.useSupabase()) {
-      const allAssigned = await dbAdapter.findComplaints({ assignedTo: req.user.id });
+      const allAssigned = await dbAdapter.findComplaints({ staffUser: req.user });
       assigned = allAssigned.filter((c) => c.status === 'assigned').length;
       inProgress = allAssigned.filter((c) => c.status === 'in_progress').length;
       resolved = allAssigned.filter((c) => ['resolved', 'closed'].includes(c.status)).length;
@@ -152,7 +173,13 @@ router.get('/stats', async (req, res, next) => {
     } else {
       const activeUsers = await User.find({ isActive: { $ne: false } }).select('_id');
       const activeUserIds = activeUsers.map((u) => u._id);
-      const baseFilter = { assignedTo: req.user.id, submittedBy: { $in: activeUserIds } };
+      const baseFilter = {
+        $or: [
+          { assignedTo: req.user.id },
+          { category: { $in: specCategories } },
+        ],
+        submittedBy: { $in: activeUserIds },
+      };
 
       const userDoc = await User.findById(req.user.id).select('averageRating totalRatingsCount');
 

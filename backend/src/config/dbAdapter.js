@@ -319,7 +319,20 @@ const dbAdapter = {
     if (useSupabase()) {
       let query = supabase.from('complaints').select('*, submitted_by(*), assigned_to(*)');
       if (filter.submittedBy) query = query.eq('submitted_by', filter.submittedBy);
-      if (filter.assignedTo) query = query.eq('assigned_to', filter.assignedTo);
+      if (filter.staffUser) {
+        const getCats = (spec) => {
+          const s = (spec || '').toLowerCase();
+          if (s === 'electrical') return ['electrical'];
+          if (s === 'plumbing') return ['water', 'plumbing'];
+          if (s === 'internet') return ['internet', 'wifi'];
+          if (s === 'cleaning') return ['cleaning', 'housekeeping'];
+          return ['furniture', 'security', 'other'];
+        };
+        const cats = getCats(filter.staffUser.specialization);
+        query = query.or(`assigned_to.eq.${filter.staffUser.id},category.in.(${cats.join(',')})`);
+      } else if (filter.assignedTo) {
+        query = query.eq('assigned_to', filter.assignedTo);
+      }
       if (filter.status) {
         if (typeof filter.status === 'object' && filter.status.$in) {
           query = query.in('status', filter.status.$in);

@@ -123,7 +123,7 @@ class _StaffAssignmentsScreenState extends State<StaffAssignmentsScreen> with Si
                           children: [
                             FadeInDown(
                               child: Text(
-                                'My Assignments',
+                                'Department Tasks',
                                 style: GoogleFonts.outfit(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
