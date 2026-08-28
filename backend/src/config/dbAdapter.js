@@ -218,6 +218,7 @@ const dbAdapter = {
         location: complaintData.location || {},
         submitted_by: complaintData.submittedBy,
         qr_scanned: complaintData.qrScanned || false,
+        is_common_area: complaintData.isCommonArea || false,
         images: complaintData.images || [],
         status_history: [{ status: 'pending', notes: 'Complaint submitted', timestamp: new Date() }],
       };
@@ -251,7 +252,7 @@ const dbAdapter = {
         }
       } catch (_) {}
 
-      const { data, error } = await supabase.from('complaints').insert([payload]).select().single();
+      const { data, error } = await supabase.from('complaints').insert([payload]).select('*, submitted_by(*), assigned_to(*)').single();
       if (error) throw new Error(error.message);
 
       // Dual Sync to MongoDB

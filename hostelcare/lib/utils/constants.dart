@@ -7,19 +7,16 @@ class ApiConstants {
 
   // Use production URL for Web release and production mode
   static String get baseUrl {
+    if (kDebugMode) return 'http://127.0.0.1:5000/api';
     if (kReleaseMode || isProduction) return prodUrl;
-    if (kIsWeb) return prodUrl;
     
-    // Automatically detect Android to use 10.0.2.2 for emulator
     try {
       if (defaultTargetPlatform == TargetPlatform.android) {
-        // Return 127.0.0.1 for physical device with ADB reverse, or use 10.0.2.2 for Emulator
         return 'http://127.0.0.1:5000/api';
       }
     } catch (_) {}
     
-    // Machine IP from ipconfig: 192.168.137.38
-    return 'http://192.168.137.38:5000/api';
+    return prodUrl;
   }
 
   static String get auth => '$baseUrl/auth';
