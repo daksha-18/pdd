@@ -2,6 +2,7 @@ const router = require('express').Router();
 const Complaint = require('../models/Complaint');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const dbAdapter = require('../config/dbAdapter');
 const { protect, authorize } = require('../middleware/auth');
 const { complaintValidation } = require('../middleware/validate');
 const { upload } = require('../config/cloudinary');
@@ -202,13 +203,20 @@ router.get('/', protect, async (req, res, next) => {
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
 
-    const total = await Complaint.countDocuments(filter);
-    const complaints = await Complaint.find(filter)
-      .populate('submittedBy', 'name email hostelBlock roomNumber')
-      .populate('assignedTo', 'name email specialization')
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    let total;
+    let complaints;
+    if (dbAdapter.useSupabase()) {
+      complaints = await dbAdapter.findComplaints(filter, { page: parseInt(page), limit: parseInt(limit), sort });
+      total = complaints.length;
+    } else {
+      total = await Complaint.countDocuments(filter);
+      complaints = await Complaint.find(filter)
+        .populate('submittedBy', 'name email hostelBlock roomNumber')
+        .populate('assignedTo', 'name email specialization')
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit));
+    }
 
     res.json({
       success: true,
@@ -230,11 +238,16 @@ router.get('/', protect, async (req, res, next) => {
 // @access  Private
 router.get('/:id', protect, async (req, res, next) => {
   try {
-    const complaint = await Complaint.findById(req.params.id)
-      .populate('submittedBy', 'name email hostelBlock roomNumber avatar')
-      .populate('assignedTo', 'name email specialization avatar')
-      .populate('statusHistory.changedBy', 'name role')
-      .populate('upvotedBy', 'name email');
+    let complaint;
+    if (dbAdapter.useSupabase()) {
+      complaint = await dbAdapter.findComplaintById(req.params.id);
+    } else {
+      complaint = await Complaint.findById(req.params.id)
+        .populate('submittedBy', 'name email hostelBlock roomNumber avatar')
+        .populate('assignedTo', 'name email specialization avatar')
+        .populate('statusHistory.changedBy', 'name role')
+        .populate('upvotedBy', 'name email');
+    }
 
     if (!complaint) {
       return res.status(404).json({ success: false, message: 'Complaint not found' });
