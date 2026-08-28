@@ -66,9 +66,54 @@ const syncSupabaseToMongo = async () => {
   }
 };
 
+const autoAssignPendingComplaints = async () => {
+  try {
+    if (supabase) {
+      const { data: pendingComplaints } = await supabase.from('complaints').select('*').or('status.eq.pending,assigned_to.is.null');
+      const { data: sStaff } = await supabase.from('users').select('*').eq('role', 'staff');
+      const staffList = sStaff || [];
+
+      if (pendingComplaints && pendingComplaints.length > 0 && staffList.length > 0) {
+        for (const c of pendingComplaints) {
+          const mapCat = (cat) => {
+            const k = (cat || '').toLowerCase();
+            if (k === 'water' || k === 'plumbing') return 'plumbing';
+            if (k === 'electrical') return 'electrical';
+            if (k === 'internet' || k === 'wifi') return 'internet';
+            if (k === 'cleaning' || k === 'housekeeping') return 'cleaning';
+            return 'general';
+          };
+          const target = mapCat(c.category);
+          let eligible = staffList.filter((s) => s.is_approved !== false && s.specialization === target);
+          if (eligible.length === 0) eligible = staffList.filter((s) => s.is_approved !== false && s.specialization === 'general');
+          if (eligible.length === 0) eligible = staffList.filter((s) => s.is_approved !== false);
+
+          if (eligible.length > 0) {
+            const chosen = eligible[0];
+            const history = c.status_history || [];
+            history.push({
+              status: 'assigned',
+              notes: `Auto-assigned to ${chosen.name} (${chosen.specialization || 'Department Staff'}) based on category (${c.category})`,
+              timestamp: new Date(),
+            });
+            await supabase.from('complaints').update({
+              assigned_to: chosen.id,
+              status: 'assigned',
+              status_history: history,
+            }).eq('id', c.id);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Auto assign migration warning:', e.message);
+  }
+};
+
 const connectDB = async () => {
   if (supabase) {
     console.log('⚡ Using Supabase (PostgreSQL over HTTPS / Port 443) - College Wi-Fi Compatible!');
+    await autoAssignPendingComplaints();
     await syncSupabaseToMongo();
     return;
   }
