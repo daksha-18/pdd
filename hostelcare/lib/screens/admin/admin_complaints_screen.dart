@@ -39,10 +39,13 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
         shrinkWrap: true, itemCount: _staffList.length,
         itemBuilder: (_, i) {
           final s = _staffList[i];
+          final avgRating = (s['averageRating'] ?? 0.0).toDouble();
+          final totalCount = s['totalRatingsCount'] ?? 0;
+          final ratingText = avgRating > 0 ? '⭐ ${avgRating.toStringAsFixed(1)} ($totalCount)' : '⭐ New';
           return ListTile(
             leading: CircleAvatar(child: Text(s['name'][0])),
-            title: Text(s['name']), subtitle: Text('${s['specialization']} • Active: ${s['activeAssignments']}'),
-            onTap: () => Navigator.pop(ctx, s['_id']),
+            title: Text(s['name']), subtitle: Text('${(s['specialization'] ?? 'staff').toString().toUpperCase()} • Active: ${s['activeAssignments']} • $ratingText'),
+            onTap: () => Navigator.pop(ctx, s['_id'] ?? s['id']),
           );
         },
       )),
@@ -259,12 +262,64 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Auto-Assigned: ${c['assignedTo']['name']} (${c['assignedTo']['specialization'] ?? 'Staff'})',
+                        'Assigned Staff: ${c['assignedTo']['name']} (${(c['assignedTo']['specialization'] ?? 'Staff').toString().toUpperCase()})',
                         style: GoogleFonts.inter(fontSize: 12, color: isDark ? Colors.indigo[200] : const Color(0xFF4338CA), fontWeight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (c['assignedTo']['averageRating'] != null && (c['assignedTo']['averageRating'] as num) > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.amber.withOpacity(0.2), borderRadius: BorderRadius.circular(6)),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.amber, size: 12),
+                            const SizedBox(width: 2),
+                            Text('${(c['assignedTo']['averageRating'] as num).toStringAsFixed(1)}', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber[900])),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+            if (c['feedback'] != null && c['feedback']['rating'] != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(isDark ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Student Feedback Score: ${c['feedback']['rating']}/5',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.amber[300] : Colors.amber[900]),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: List.generate(5, (i) => Icon(
+                            i < (c['feedback']['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
+                            color: Colors.amber, size: 14,
+                          )),
+                        ),
+                      ],
+                    ),
+                    if (c['feedback']['comment'] != null && (c['feedback']['comment'] as String).trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '"${c['feedback']['comment']}"',
+                        style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: isDark ? Colors.grey[300] : const Color(0xFF334155)),
+                      ),
+                    ],
                   ],
                 ),
               ),

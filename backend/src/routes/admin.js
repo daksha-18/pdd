@@ -10,21 +10,41 @@ router.use(protect, authorize('admin'));
 // GET /api/admin/users
 router.get('/users', async (req, res, next) => {
   try {
-    const { role, search, page = 1, limit = 20 } = req.query;
-    const filter = { isActive: { $ne: false } };
+    const { role, search, page = 1, limit = 50 } = req.query;
+    const dbAdapter = require('../config/dbAdapter');
+
+    const filter = {};
     if (role) filter.role = role;
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
+
+    let users = await dbAdapter.findUsers(filter);
+    if (Array.isArray(users)) {
+      users = users.filter((u) => u.isActive !== false);
     }
-    const total = await User.countDocuments(filter);
-    const users = await User.find(filter)
-      .sort('-createdAt')
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-    res.json({ success: true, data: users, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
+
+    if (search) {
+      const s = search.toLowerCase();
+      users = users.filter((u) => (u.name && u.name.toLowerCase().includes(s)) || (u.email && u.email.toLowerCase().includes(s)));
+    }
+
+    const total = users.length;
+    const pagedUsers = users.slice((page - 1) * limit, page * limit);
+
+    const usersWithRatings = await Promise.all(pagedUsers.map(async (u) => {
+      const uObj = typeof u.toObject === 'function' ? u.toObject() : { ...u };
+      if (u.role === 'staff') {
+        try {
+          const perfData = await dbAdapter.getStaffPerformance();
+          const p = perfData.find((fp) => fp.staff && (fp.staff.id === u.id || fp.staff.id === u._id || String(fp.staff.id) === String(u._id)));
+          if (p) {
+            uObj.averageRating = p.avgRating || 0;
+            uObj.totalRatingsCount = p.totalResolved || 0;
+          }
+        } catch (e) {}
+      }
+      return uObj;
+    }));
+
+    res.json({ success: true, data: usersWithRatings, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
   } catch (error) { next(error); }
 });
 
@@ -100,7 +120,7 @@ router.get('/complaints', async (req, res, next) => {
     const total = await Complaint.countDocuments(filter);
     const complaints = await Complaint.find(filter)
       .populate('submittedBy', 'name email hostelBlock roomNumber')
-      .populate('assignedTo', 'name email specialization')
+      .populate('assignedTo', 'name email specialization averageRating totalRatingsCount')
       .sort(sort).skip((page - 1) * limit).limit(parseInt(limit));
     res.json({ success: true, data: complaints, pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) } });
   } catch (error) { next(error); }
@@ -156,10 +176,154 @@ router.get('/staff', async (req, res, next) => {
     const staff = await User.find({ role: 'staff', isActive: true });
     const result = await Promise.all(staff.map(async (s) => {
       const count = await Complaint.countDocuments({ assignedTo: s._id, status: { $in: ['assigned', 'in_progress'] } });
-      return { ...s.toObject(), activeAssignments: count };
+      const ratedComplaints = await Complaint.find({
+        assignedTo: s._id,
+        'feedback.rating': { $exists: true, $ne: null }
+      });
+      const totalRatingsCount = ratedComplaints.length;
+      let averageRating = s.averageRating || 0;
+      if (totalRatingsCount > 0) {
+        const sum = ratedComplaints.reduce((acc, c) => acc + (c.feedback.rating || 0), 0);
+        averageRating = Math.round((sum / totalRatingsCount) * 10) / 10;
+      }
+
+      return {
+        ...s.toObject(),
+        activeAssignments: count,
+        averageRating,
+        totalRatingsCount
+      };
     }));
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 });
 
+// GET /api/admin/staff/:id/feedback
+router.get('/staff/:id/feedback', async (req, res, next) => {
+  try {
+    const staffId = req.params.id;
+    const { supabase } = require('../config/supabase');
+    const mongoose = require('mongoose');
+
+    let staff = null;
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, specialization, average_rating, total_ratings_count')
+        .eq('id', staffId)
+        .maybeSingle();
+
+      if (data) {
+        staff = {
+          _id: data.id,
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          specialization: data.specialization || 'general',
+          averageRating: data.average_rating || 0,
+          totalRatingsCount: data.total_ratings_count || 0
+        };
+      }
+    }
+
+    if (!staff) {
+      if (mongoose.connection.readyState !== 0) {
+        if (mongoose.Types.ObjectId.isValid(staffId)) {
+          staff = await User.findById(staffId).select('name email specialization averageRating totalRatingsCount');
+        }
+        if (!staff) {
+          staff = await User.findOne({ $or: [{ _id: staffId }, { id: staffId }] }).select('name email specialization averageRating totalRatingsCount');
+        }
+      }
+    }
+
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff member not found' });
+    }
+
+    let feedbacks = [];
+
+    if (supabase) {
+      const { data: cList } = await supabase
+        .from('complaints')
+        .select('*, submitted_by(*)')
+        .eq('assigned_to', staffId);
+
+      if (cList && cList.length > 0) {
+        feedbacks = cList
+          .filter(c => c && c.feedback && (c.feedback.rating !== undefined && c.feedback.rating !== null))
+          .map(c => ({
+            id: c.id,
+            complaintId: c.complaint_id || '',
+            title: c.title || '',
+            category: c.category || '',
+            rating: c.feedback.rating,
+            comment: c.feedback.comment || '',
+            submittedAt: c.feedback.submittedAt || c.created_at,
+            student: c.submitted_by ? {
+              id: c.submitted_by.id,
+              name: c.submitted_by.name || 'Student',
+              email: c.submitted_by.email || '',
+              hostelBlock: c.submitted_by.hostel_block || '',
+              roomNumber: c.submitted_by.room_number || '',
+            } : null
+          }));
+      }
+    }
+
+    if (feedbacks.length === 0 && mongoose.connection.readyState !== 0) {
+      let complaintsWithFeedback = [];
+      if (mongoose.Types.ObjectId.isValid(staff._id || staffId)) {
+        complaintsWithFeedback = await Complaint.find({
+          assignedTo: staff._id || staffId,
+          'feedback.rating': { $exists: true, $ne: null }
+        })
+        .populate('submittedBy', 'name email hostelBlock roomNumber')
+        .sort({ 'feedback.submittedAt': -1, updatedAt: -1 });
+      }
+
+      feedbacks = (complaintsWithFeedback || [])
+        .filter(c => c && c.feedback && c.feedback.rating)
+        .map(c => ({
+          id: c._id,
+          complaintId: c.complaintId || '',
+          title: c.title || '',
+          category: c.category || '',
+          rating: c.feedback.rating,
+          comment: c.feedback.comment || '',
+          submittedAt: c.feedback ? (c.feedback.submittedAt || c.updatedAt) : c.updatedAt,
+          student: c.submittedBy ? {
+            id: c.submittedBy._id,
+            name: c.submittedBy.name || 'Student',
+            email: c.submittedBy.email || '',
+            hostelBlock: c.submittedBy.hostelBlock || '',
+            roomNumber: c.submittedBy.roomNumber || '',
+          } : null
+        }));
+    }
+
+    const totalRatingsCount = feedbacks.length;
+    const avgRating = totalRatingsCount > 0
+      ? Math.round((feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / totalRatingsCount) * 10) / 10
+      : (staff.averageRating || 0);
+
+    return res.json({
+      success: true,
+      data: {
+        staff: {
+          id: staff._id || staff.id,
+          name: staff.name,
+          email: staff.email,
+          specialization: staff.specialization,
+          averageRating: avgRating,
+          totalRatingsCount
+        },
+        feedbacks
+      }
+    });
+  } catch (error) { next(error); }
+});
+
 module.exports = router;
+

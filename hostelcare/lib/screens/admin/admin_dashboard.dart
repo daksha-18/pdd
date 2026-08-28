@@ -13,6 +13,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? _data;
+  List<dynamic>? _staffPerformance;
   bool _loading = true;
 
   @override
@@ -25,7 +26,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     setState(() => _loading = true);
     try {
       final res = await ApiService.get('${ApiConstants.analytics}/dashboard');
-      setState(() { _data = res['data']; _loading = false; });
+      final perfRes = await ApiService.get('${ApiConstants.analytics}/staff-performance');
+      setState(() {
+        _data = res['data'];
+        _staffPerformance = perfRes['data'];
+        _loading = false;
+      });
     } catch (e) {
       setState(() => _loading = false);
     }
@@ -117,9 +123,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     delegate: SliverChildListDelegate([
                       FadeInUp(child: _overviewCards()),
                       const SizedBox(height: 24),
-                      FadeInUp(delay: const Duration(milliseconds: 200), child: _resolutionCard()),
+                      FadeInUp(delay: const Duration(milliseconds: 150), child: _staffFeedbackCard()),
                       const SizedBox(height: 24),
-                      FadeInUp(delay: const Duration(milliseconds: 400), child: _priorityChart()),
+                      FadeInUp(delay: const Duration(milliseconds: 300), child: _resolutionCard()),
+                      const SizedBox(height: 24),
+                      FadeInUp(delay: const Duration(milliseconds: 450), child: _priorityChart()),
                       const SizedBox(height: 40),
                     ]),
                   ),
@@ -290,5 +298,123 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ]));
       }),
     ])));
+  }
+
+  Widget _staffFeedbackCard() {
+    final perf = _staffPerformance ?? [];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: isDark ? [] : [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+        border: Border.all(color: Colors.amber.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.star_rounded, color: Colors.amber, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Staff Feedback Scores',
+                      style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Student satisfaction ratings across all staff',
+                      style: GoogleFonts.inter(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (perf.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+            Text(
+              'Staff Ratings Breakdown',
+              style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[300] : const Color(0xFF334155)),
+            ),
+            const SizedBox(height: 10),
+            Column(
+              children: perf.map((s) {
+                final staffData = s['staff'] ?? {};
+                final name = staffData['name'] ?? 'Staff';
+                final spec = (staffData['specialization'] ?? 'general').toString().toUpperCase();
+                final rating = (s['avgRating'] ?? 0.0).toDouble();
+                final resolved = s['totalResolved'] ?? 0;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.03) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.indigo.withOpacity(0.1),
+                        child: Text(name[0].toUpperCase(), style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold)),
+                            Text('$spec • Resolved: $resolved', style: GoogleFonts.inter(fontSize: 10, color: Colors.grey[500])),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              rating > 0 ? rating.toStringAsFixed(1) : 'New',
+                              style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[900]),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

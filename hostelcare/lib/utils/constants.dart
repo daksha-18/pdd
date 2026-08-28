@@ -7,7 +7,7 @@ class ApiConstants {
 
   // Use production URL for production mode, release mode, or physical devices
   static String get baseUrl {
-    if (isProduction || kReleaseMode) return prodUrl;
+    if (isProduction) return prodUrl;
     return 'http://127.0.0.1:5000/api';
   }
 
