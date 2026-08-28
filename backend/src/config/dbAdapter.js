@@ -222,6 +222,35 @@ const dbAdapter = {
         status_history: [{ status: 'pending', notes: 'Complaint submitted', timestamp: new Date() }],
       };
 
+      // Auto-assign department staff based on category
+      const mapCat = (c) => {
+        const cat = (c || '').toLowerCase();
+        if (cat === 'water' || cat === 'plumbing') return 'plumbing';
+        if (cat === 'electrical') return 'electrical';
+        if (cat === 'internet' || cat === 'wifi') return 'internet';
+        if (cat === 'cleaning' || cat === 'housekeeping') return 'cleaning';
+        return 'general';
+      };
+      const spec = mapCat(complaintData.category);
+
+      try {
+        const { data: sStaff } = await supabase.from('users').select('*').eq('role', 'staff');
+        let eligible = (sStaff || []).filter((s) => s.is_approved !== false && s.specialization === spec);
+        if (eligible.length === 0) eligible = (sStaff || []).filter((s) => s.is_approved !== false && s.specialization === 'general');
+        if (eligible.length === 0) eligible = (sStaff || []).filter((s) => s.is_approved !== false);
+
+        if (eligible.length > 0) {
+          const chosen = eligible[0];
+          payload.assigned_to = chosen.id;
+          payload.status = 'assigned';
+          payload.status_history.push({
+            status: 'assigned',
+            notes: `Auto-assigned to ${chosen.name} (${chosen.specialization || 'Department Staff'}) based on category (${complaintData.category})`,
+            timestamp: new Date(),
+          });
+        }
+      } catch (_) {}
+
       const { data, error } = await supabase.from('complaints').insert([payload]).select().single();
       if (error) throw new Error(error.message);
 
