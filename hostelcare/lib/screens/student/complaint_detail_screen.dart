@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/complaint_provider.dart';
+import '../../utils/sentiment_analyzer.dart';
 
 class ComplaintDetailScreen extends StatefulWidget {
   final String complaintId;
@@ -207,47 +208,139 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
     int rating = 0;
     final commentCtrl = TextEditingController();
     final quickChips = ['Fast Repair ⚡', 'Polite Staff 😊', 'Thorough Work 👍', 'Clean Finish ✨'];
+    String currentText = '';
+
     return StatefulBuilder(builder: (context, setSt) {
-      return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Rate Repair & Resolution Quality', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) => IconButton(
-          icon: Icon(i < rating ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 36),
-          onPressed: () => setSt(() => rating = i + 1),
-        ))),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: quickChips.map((chip) => ActionChip(
-            label: Text(chip, style: const TextStyle(fontSize: 12)),
-            onPressed: () {
-              final currentText = commentCtrl.text;
-              commentCtrl.text = currentText.isEmpty ? chip : '$currentText, $chip';
-            },
-          )).toList(),
+      final sentimentResult = SentimentAnalyzer.analyze(currentText);
+
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Rate Repair & Resolution Quality', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) => IconButton(
+                  icon: Icon(i < rating ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 36),
+                  onPressed: () => setSt(() => rating = i + 1),
+                )),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: quickChips.map((chip) => ActionChip(
+                  label: Text(chip, style: const TextStyle(fontSize: 12)),
+                  onPressed: () {
+                    final prev = commentCtrl.text;
+                    final next = prev.isEmpty ? chip : '$prev, $chip';
+                    commentCtrl.text = next;
+                    setSt(() => currentText = next);
+                  },
+                )).toList(),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: commentCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(hintText: 'Add additional feedback notes...'),
+                onChanged: (val) => setSt(() => currentText = val),
+              ),
+              if (currentText.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sentimentResult.color.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sentimentResult.color.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(sentimentResult.icon, color: sentimentResult.color, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Text Response Score: ${sentimentResult.displayText}',
+                          style: TextStyle(
+                            color: sentimentResult.color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: rating > 0 ? () async {
+                    await context.read<ComplaintProvider>().submitFeedback(c.id, rating, commentCtrl.text);
+                  } : null,
+                  child: const Text('Submit Feedback'),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        TextField(controller: commentCtrl, maxLines: 2, decoration: const InputDecoration(hintText: 'Add additional feedback notes...')),
-        const SizedBox(height: 12),
-        SizedBox(width: double.infinity, child: ElevatedButton(
-          onPressed: rating > 0 ? () async {
-            await context.read<ComplaintProvider>().submitFeedback(c.id, rating, commentCtrl.text);
-          } : null,
-          child: const Text('Submit Feedback'),
-        )),
-      ])));
+      );
     });
   }
 
   Widget _existingFeedback(c) {
     final fb = c.feedback!;
-    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Your Feedback', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      Row(children: List.generate(5, (i) => Icon(i < (fb['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 24))),
-      if (fb['comment'] != null && fb['comment'].isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(fb['comment'], style: TextStyle(color: Colors.grey[600]))),
-    ])));
+    final double? sScore = (fb['sentimentScore'] is num) ? (fb['sentimentScore'] as num).toDouble() : null;
+    final String? sLabel = fb['sentimentLabel']?.toString();
+    final sentimentResult = SentimentAnalyzer.analyze(fb['comment']?.toString() ?? '', serverScore: sScore, serverLabel: sLabel);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Your Feedback', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sentimentResult.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: sentimentResult.color.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(sentimentResult.icon, color: sentimentResult.color, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Response: ${sentimentResult.displayText}',
+                        style: TextStyle(color: sentimentResult.color, fontWeight: FontWeight.bold, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(children: List.generate(5, (i) => Icon(i < (fb['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 24))),
+            if (fb['comment'] != null && fb['comment'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(fb['comment'], style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _withdrawSection(BuildContext context, c) {

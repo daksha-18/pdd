@@ -68,6 +68,8 @@ const complaintSchema = new mongoose.Schema(
       rating: { type: Number, min: 1, max: 5 },
       comment: { type: String },
       submittedAt: { type: Date },
+      sentimentScore: { type: Number },
+      sentimentLabel: { type: String, enum: ['positive', 'negative', 'neutral'], default: 'neutral' },
     },
     statusHistory: [
       {

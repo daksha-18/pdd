@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Complaint = require('../models/Complaint');
 const Notification = require('../models/Notification');
 const { protect, authorize } = require('../middleware/auth');
+const { analyzeSentiment } = require('../utils/sentiment');
 const { sendPushNotification } = require('../config/firebase');
 
 router.use(protect, authorize('admin'));
@@ -37,6 +38,7 @@ router.get('/users', async (req, res, next) => {
           const p = perfData.find((fp) => fp.staff && (fp.staff.id === u.id || fp.staff.id === u._id || String(fp.staff.id) === String(u._id)));
           if (p) {
             uObj.averageRating = p.avgRating || 0;
+            uObj.averageSentimentScore = p.avgSentiment !== undefined ? p.avgSentiment : (p.averageSentimentScore || uObj.averageSentimentScore || 0);
             uObj.totalRatingsCount = p.totalResolved || 0;
           }
         } catch (e) {}
@@ -253,22 +255,29 @@ router.get('/staff/:id/feedback', async (req, res, next) => {
       if (cList && cList.length > 0) {
         feedbacks = cList
           .filter(c => c && c.feedback && (c.feedback.rating !== undefined && c.feedback.rating !== null))
-          .map(c => ({
-            id: c.id,
-            complaintId: c.complaint_id || '',
-            title: c.title || '',
-            category: c.category || '',
-            rating: c.feedback.rating,
-            comment: c.feedback.comment || '',
-            submittedAt: c.feedback.submittedAt || c.created_at,
-            student: c.submitted_by ? {
-              id: c.submitted_by.id,
-              name: c.submitted_by.name || 'Student',
-              email: c.submitted_by.email || '',
-              hostelBlock: c.submitted_by.hostel_block || '',
-              roomNumber: c.submitted_by.room_number || '',
-            } : null
-          }));
+          .map(c => {
+            const sent = (c.feedback.sentimentScore !== undefined && c.feedback.sentimentLabel)
+              ? { score: c.feedback.sentimentScore, label: c.feedback.sentimentLabel }
+              : analyzeSentiment(c.feedback.comment || '');
+            return {
+              id: c.id,
+              complaintId: c.complaint_id || '',
+              title: c.title || '',
+              category: c.category || '',
+              rating: c.feedback.rating,
+              comment: c.feedback.comment || '',
+              sentimentScore: sent.score,
+              sentimentLabel: sent.label,
+              submittedAt: c.feedback.submittedAt || c.created_at,
+              student: c.submitted_by ? {
+                id: c.submitted_by.id,
+                name: c.submitted_by.name || 'Student',
+                email: c.submitted_by.email || '',
+                hostelBlock: c.submitted_by.hostel_block || '',
+                roomNumber: c.submitted_by.room_number || '',
+              } : null
+            };
+          });
       }
     }
 
@@ -285,28 +294,38 @@ router.get('/staff/:id/feedback', async (req, res, next) => {
 
       feedbacks = (complaintsWithFeedback || [])
         .filter(c => c && c.feedback && c.feedback.rating)
-        .map(c => ({
-          id: c._id,
-          complaintId: c.complaintId || '',
-          title: c.title || '',
-          category: c.category || '',
-          rating: c.feedback.rating,
-          comment: c.feedback.comment || '',
-          submittedAt: c.feedback ? (c.feedback.submittedAt || c.updatedAt) : c.updatedAt,
-          student: c.submittedBy ? {
-            id: c.submittedBy._id,
-            name: c.submittedBy.name || 'Student',
-            email: c.submittedBy.email || '',
-            hostelBlock: c.submittedBy.hostelBlock || '',
-            roomNumber: c.submittedBy.roomNumber || '',
-          } : null
-        }));
+        .map(c => {
+          const sent = (c.feedback.sentimentScore !== undefined && c.feedback.sentimentLabel)
+            ? { score: c.feedback.sentimentScore, label: c.feedback.sentimentLabel }
+            : analyzeSentiment(c.feedback.comment || '');
+          return {
+            id: c._id,
+            complaintId: c.complaintId || '',
+            title: c.title || '',
+            category: c.category || '',
+            rating: c.feedback.rating,
+            comment: c.feedback.comment || '',
+            sentimentScore: sent.score,
+            sentimentLabel: sent.label,
+            submittedAt: c.feedback ? (c.feedback.submittedAt || c.updatedAt) : c.updatedAt,
+            student: c.submittedBy ? {
+              id: c.submittedBy._id,
+              name: c.submittedBy.name || 'Student',
+              email: c.submittedBy.email || '',
+              hostelBlock: c.submittedBy.hostelBlock || '',
+              roomNumber: c.submittedBy.roomNumber || '',
+            } : null
+          };
+        });
     }
 
     const totalRatingsCount = feedbacks.length;
     const avgRating = totalRatingsCount > 0
       ? Math.round((feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / totalRatingsCount) * 10) / 10
       : (staff.averageRating || 0);
+    const avgSentimentScore = totalRatingsCount > 0
+      ? Math.round((feedbacks.reduce((acc, f) => acc + (f.sentimentScore || 0), 0) / totalRatingsCount) * 100) / 100
+      : (staff.averageSentimentScore || 0);
 
     return res.json({
       success: true,
@@ -317,6 +336,7 @@ router.get('/staff/:id/feedback', async (req, res, next) => {
           email: staff.email,
           specialization: staff.specialization,
           averageRating: avgRating,
+          averageSentimentScore: avgSentimentScore,
           totalRatingsCount
         },
         feedbacks

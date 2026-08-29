@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const dbAdapter = require('../config/dbAdapter');
 const { protect, authorize } = require('../middleware/auth');
+const { analyzeSentiment } = require('../utils/sentiment');
 const { upload } = require('../config/cloudinary');
 const { sendPushNotification } = require('../config/firebase');
 
@@ -156,6 +157,7 @@ router.get('/stats', async (req, res, next) => {
     let inProgress = 0;
     let resolved = 0;
     let averageRating = 0;
+    let averageSentimentScore = 0;
     let totalRatingsCount = 0;
     const specCategories = getCategoriesForStaffSpec(req.user.specialization);
 
@@ -165,9 +167,10 @@ router.get('/stats', async (req, res, next) => {
       inProgress = allAssigned.filter((c) => c.status === 'in_progress').length;
       resolved = allAssigned.filter((c) => ['resolved', 'closed'].includes(c.status)).length;
 
-      const { data: userDoc } = await dbAdapter.supabase.from('users').select('average_rating, total_ratings_count').eq('id', req.user.id).single();
+      const { data: userDoc } = await dbAdapter.supabase.from('users').select('average_rating, average_sentiment_score, total_ratings_count').eq('id', req.user.id).single();
       if (userDoc) {
         averageRating = userDoc.average_rating || 0;
+        averageSentimentScore = userDoc.average_sentiment_score || 0;
         totalRatingsCount = userDoc.total_ratings_count || 0;
       }
     } else {
@@ -175,21 +178,41 @@ router.get('/stats', async (req, res, next) => {
       const activeUserIds = activeUsers.map((u) => u._id);
       const baseFilter = {
         $or: [
-          { assignedTo: req.user.id },
+          { assignedTo: req.user._id || req.user.id },
           { category: { $in: specCategories } },
         ],
         submittedBy: { $in: activeUserIds },
       };
 
-      const userDoc = await User.findById(req.user.id).select('averageRating totalRatingsCount');
+      const userDoc = await User.findById(req.user._id || req.user.id).select('averageRating averageSentimentScore totalRatingsCount');
+
+      const ratedComplaints = await Complaint.find({
+        assignedTo: req.user._id || req.user.id,
+        'feedback.rating': { $exists: true, $ne: null },
+      });
 
       [assigned, inProgress, resolved] = await Promise.all([
         Complaint.countDocuments({ ...baseFilter, status: 'assigned' }),
         Complaint.countDocuments({ ...baseFilter, status: 'in_progress' }),
         Complaint.countDocuments({ ...baseFilter, status: { $in: ['resolved', 'closed'] } }),
       ]);
-      averageRating = userDoc?.averageRating || 0;
-      totalRatingsCount = userDoc?.totalRatingsCount || 0;
+
+      if (ratedComplaints.length > 0) {
+        totalRatingsCount = ratedComplaints.length;
+        const totalRatingSum = ratedComplaints.reduce((acc, c) => acc + (c.feedback.rating || 0), 0);
+        const totalSentSum = ratedComplaints.reduce((acc, c) => {
+          const sentScore = c.feedback.sentimentScore !== undefined
+            ? c.feedback.sentimentScore
+            : analyzeSentiment(c.feedback.comment || '').score;
+          return acc + sentScore;
+        }, 0);
+        averageRating = Math.round((totalRatingSum / totalRatingsCount) * 10) / 10;
+        averageSentimentScore = Math.round((totalSentSum / totalRatingsCount) * 100) / 100;
+      } else {
+        averageRating = userDoc?.averageRating || 0;
+        averageSentimentScore = userDoc?.averageSentimentScore || 0;
+        totalRatingsCount = userDoc?.totalRatingsCount || 0;
+      }
     }
 
     res.json({
@@ -200,6 +223,8 @@ router.get('/stats', async (req, res, next) => {
         resolved,
         total: assigned + inProgress + resolved,
         averageRating,
+        averageSentimentScore,
+        avgSentiment: averageSentimentScore,
         totalRatingsCount,
       },
     });

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/sentiment_analyzer.dart';
 
 class AdminComplaintsScreen extends StatefulWidget {
   const AdminComplaintsScreen({super.key});
@@ -286,43 +287,70 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
             ],
             if (c['feedback'] != null && c['feedback']['rating'] != null) ...[
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(isDark ? 0.15 : 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Student Feedback Score: ${c['feedback']['rating']}/5',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.amber[300] : Colors.amber[900]),
+              Builder(builder: (context) {
+                final fb = c['feedback'];
+                final double? sScore = (fb['sentimentScore'] is num) ? (fb['sentimentScore'] as num).toDouble() : null;
+                final String? sLabel = fb['sentimentLabel']?.toString();
+                final sent = SentimentAnalyzer.analyze(fb['comment']?.toString() ?? '', serverScore: sScore, serverLabel: sLabel);
+
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(isDark ? 0.15 : 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Student Feedback Score: ${fb['rating']}/5',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.amber[300] : Colors.amber[900]),
+                          ),
+                          const Spacer(),
+                          Row(
+                            children: List.generate(5, (i) => Icon(
+                              i < (fb['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
+                              color: Colors.amber, size: 14,
+                            )),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: sent.color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: sent.color.withOpacity(0.4)),
                         ),
-                        const Spacer(),
-                        Row(
-                          children: List.generate(5, (i) => Icon(
-                            i < (c['feedback']['rating'] ?? 0) ? Icons.star_rounded : Icons.star_outline_rounded,
-                            color: Colors.amber, size: 14,
-                          )),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(sent.icon, color: sent.color, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Text Response: ${sent.displayText}',
+                              style: GoogleFonts.inter(color: sent.color, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (fb['comment'] != null && (fb['comment'] as String).trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '"${fb['comment']}"',
+                          style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: isDark ? Colors.grey[300] : const Color(0xFF334155)),
                         ),
                       ],
-                    ),
-                    if (c['feedback']['comment'] != null && (c['feedback']['comment'] as String).trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '"${c['feedback']['comment']}"',
-                        style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: isDark ? Colors.grey[300] : const Color(0xFF334155)),
-                      ),
                     ],
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }),
             ],
             const Divider(height: 32),
             Row(

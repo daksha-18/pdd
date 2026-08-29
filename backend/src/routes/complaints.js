@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const dbAdapter = require('../config/dbAdapter');
 const { protect, authorize } = require('../middleware/auth');
+const { analyzeSentiment } = require('../utils/sentiment');
 const { complaintValidation } = require('../middleware/validate');
 const { upload } = require('../config/cloudinary');
 const mapCategoryToSpec = (cat) => {
@@ -424,12 +425,19 @@ router.put('/:id/feedback', protect, authorize('student'), async (req, res, next
       return res.status(400).json({ success: false, message: 'Can only provide feedback for resolved complaints' });
     }
 
-    complaint.feedback = { rating, comment, submittedAt: new Date() };
+    const sentimentResult = analyzeSentiment(comment || '');
+    complaint.feedback = {
+      rating,
+      comment,
+      submittedAt: new Date(),
+      sentimentScore: sentimentResult.score,
+      sentimentLabel: sentimentResult.label,
+    };
     complaint.status = 'closed';
     complaint.statusHistory.push({
       status: 'closed',
       changedBy: req.user.id,
-      notes: `Feedback: ${rating}/5 - ${comment || 'No comment'}`,
+      notes: `Feedback: ${rating}/5 [Response: ${sentimentResult.label} (${sentimentResult.normalizedScore})] - ${comment || 'No comment'}`,
     });
 
     await complaint.save();
@@ -443,9 +451,12 @@ router.put('/:id/feedback', protect, authorize('student'), async (req, res, next
 
       if (ratedComplaints.length > 0) {
         const totalRatingSum = ratedComplaints.reduce((acc, curr) => acc + (curr.feedback.rating || 0), 0);
+        const totalSentSum = ratedComplaints.reduce((acc, curr) => acc + (curr.feedback.sentimentScore || 0), 0);
         const avg = Math.round((totalRatingSum / ratedComplaints.length) * 10) / 10;
+        const avgSent = Math.round((totalSentSum / ratedComplaints.length) * 100) / 100;
         await User.findByIdAndUpdate(complaint.assignedTo, {
           averageRating: avg,
+          averageSentimentScore: avgSent,
           totalRatingsCount: ratedComplaints.length,
         });
       }

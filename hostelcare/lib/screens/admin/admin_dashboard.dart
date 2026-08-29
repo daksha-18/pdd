@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/sentiment_analyzer.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -366,6 +367,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final rating = (s['avgRating'] ?? 0.0).toDouble();
                 final resolved = s['totalResolved'] ?? 0;
 
+                final double avgSent = (s['averageSentimentScore'] ?? s['avgSentiment'] ?? 0.0).toDouble();
+                final String sLabel = avgSent > 0.05 ? 'positive' : (avgSent < -0.05 ? 'negative' : 'neutral');
+                final sentResult = SentimentAnalyzer.analyze('', serverScore: avgSent, serverLabel: sLabel);
+
                 return Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -407,6 +412,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ],
                         ),
                       ),
+                      if (rating > 0) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: sentResult.color.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: sentResult.color.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(sentResult.icon, color: sentResult.color, size: 12),
+                              const SizedBox(width: 4),
+                              Text(
+                                sentResult.formattedScore,
+                                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: sentResult.color),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );

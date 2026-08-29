@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Complaint = require('../models/Complaint');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { analyzeSentiment } = require('../utils/sentiment');
 
 const useSupabase = () => !!supabase;
 
@@ -589,8 +590,12 @@ const dbAdapter = {
         const assigned = complaintList.filter((c) => c.assigned_to === s.id);
         const resolved = assigned.filter((c) => (c.status === 'resolved' || c.status === 'closed') && c.resolved_at);
         const ratings = assigned.filter((c) => c.feedback && c.feedback.rating).map((c) => c.feedback.rating);
+        const sentScores = assigned
+          .filter((c) => c.feedback && (c.feedback.sentimentScore !== undefined || c.feedback.comment))
+          .map((c) => c.feedback.sentimentScore !== undefined ? c.feedback.sentimentScore : analyzeSentiment(c.feedback.comment || '').score);
 
         const avgRating = ratings.length ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : (s.average_rating || 0);
+        const avgSentiment = sentScores.length ? Math.round((sentScores.reduce((a, b) => a + b, 0) / sentScores.length) * 100) / 100 : (s.average_sentiment_score || 0);
 
         return {
           staff: { id: s.id, name: s.name, specialization: s.specialization },
@@ -598,6 +603,8 @@ const dbAdapter = {
           totalResolved: resolved.length,
           avgResolutionHours: 0,
           avgRating,
+          avgSentiment,
+          averageSentimentScore: avgSentiment,
         };
       });
     } else {
@@ -616,12 +623,31 @@ const dbAdapter = {
           { $match: { assignedTo: s._id, 'feedback.rating': { $exists: true } } },
           { $group: { _id: null, avg: { $avg: '$feedback.rating' } } },
         ]);
+
+        const ratedComplaints = await Complaint.find({
+          assignedTo: s._id,
+          'feedback.rating': { $exists: true, $ne: null },
+        });
+
+        let avgSentiment = s.averageSentimentScore || 0;
+        if (ratedComplaints.length > 0) {
+          const sentSum = ratedComplaints.reduce((acc, c) => {
+            const sentScore = c.feedback.sentimentScore !== undefined
+              ? c.feedback.sentimentScore
+              : analyzeSentiment(c.feedback.comment || '').score;
+            return acc + sentScore;
+          }, 0);
+          avgSentiment = Math.round((sentSum / ratedComplaints.length) * 100) / 100;
+        }
+
         return {
           staff: { id: s._id, name: s.name, specialization: s.specialization },
           totalAssigned: total,
           totalResolved: resolved,
           avgResolutionHours: avgRes.length ? Math.round(avgRes[0].avg / 3600000) : 0,
           avgRating: avgFeedback.length ? Math.round(avgFeedback[0].avg * 10) / 10 : (s.averageRating || 0),
+          avgSentiment,
+          averageSentimentScore: avgSentiment,
         };
       }));
     }

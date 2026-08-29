@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/sentiment_analyzer.dart';
 
 class StaffStatsScreen extends StatefulWidget {
   const StaffStatsScreen({super.key});
@@ -128,8 +129,11 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
 
   Widget _ratingBanner() {
     final avgRating = (_stats?['averageRating'] ?? 0.0).toDouble();
+    final avgSent = (_stats?['averageSentimentScore'] ?? _stats?['avgSentiment'] ?? 0.0).toDouble();
     final count = _stats?['totalRatingsCount'] ?? 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sLabel = avgSent > 0.05 ? 'positive' : (avgSent < -0.05 ? 'negative' : 'neutral');
+    final sentResult = SentimentAnalyzer.analyze('', serverScore: avgSent, serverLabel: sLabel);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -154,7 +158,7 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Satisfaction Score',
+                  'Satisfaction & Response Score',
                   style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
@@ -167,10 +171,38 @@ class _StaffStatsScreenState extends State<StaffStatsScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                avgRating > 0 ? avgRating.toStringAsFixed(1) : 'N/A',
-                style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber[800]),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    avgRating > 0 ? avgRating.toStringAsFixed(1) : 'N/A',
+                    style: GoogleFonts.outfit(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.amber[800]),
+                  ),
+                  if (avgRating > 0 || avgSent != 0.0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: sentResult.color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: sentResult.color.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(sentResult.icon, color: sentResult.color, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            sentResult.formattedScore,
+                            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: sentResult.color),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
+              const SizedBox(height: 2),
               Row(
                 children: List.generate(5, (i) => Icon(
                   i < avgRating.round() ? Icons.star_rounded : Icons.star_outline_rounded,

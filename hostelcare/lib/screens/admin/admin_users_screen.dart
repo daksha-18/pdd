@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../services/api_service.dart';
 import '../../utils/constants.dart';
+import '../../utils/sentiment_analyzer.dart';
 
 class AdminUsersScreen extends StatefulWidget {
   const AdminUsersScreen({super.key});
@@ -313,6 +314,32 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                           color: isDark ? Colors.amber[300] : Colors.amber[900],
                         ),
                       ),
+                      Builder(builder: (context) {
+                        final double sScore = ((u['averageSentimentScore'] ?? u['avgSentiment'] ?? 0.0) as num).toDouble();
+                        if (sScore == 0) return const SizedBox.shrink();
+                        final String sLabel = sScore > 0.05 ? 'positive' : (sScore < -0.05 ? 'negative' : 'neutral');
+                        final sent = SentimentAnalyzer.analyze('', serverScore: sScore, serverLabel: sLabel);
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: sent.color.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(sent.icon, color: sent.color, size: 12),
+                                const SizedBox(width: 2),
+                                Text(
+                                  sent.formattedScore,
+                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: sent.color),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded, size: 14, color: isDark ? Colors.amber[300] : Colors.amber[900]),
                     ],
@@ -456,6 +483,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
               final avgRating = (staffInfo['averageRating'] ?? 0.0).toDouble();
               final totalRatings = staffInfo['totalRatingsCount'] ?? feedbacks.length;
 
+              double avgSentScore = (staffInfo['averageSentimentScore'] ?? 0.0).toDouble();
+              if (avgSentScore == 0.0 && feedbacks.isNotEmpty) {
+                double sum = 0.0;
+                for (var f in feedbacks) {
+                  final double s = (f['sentimentScore'] is num) ? (f['sentimentScore'] as num).toDouble() : SentimentAnalyzer.analyze(f['comment'] ?? '').score;
+                  sum += s;
+                }
+                avgSentScore = sum / feedbacks.length;
+              }
+              final String sLabel = avgSentScore > 0.05 ? 'positive' : (avgSentScore < -0.05 ? 'negative' : 'neutral');
+              final totalSentResult = SentimentAnalyzer.analyze('', serverScore: avgSentScore, serverLabel: sLabel);
+
               return Column(
                 children: [
                   const SizedBox(height: 12),
@@ -475,23 +514,44 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.amber.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: Colors.amber.withOpacity(0.4)),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
-                              const SizedBox(width: 6),
+                              const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                              const SizedBox(width: 4),
                               Text(
                                 avgRating > 0 ? avgRating.toStringAsFixed(1) : 'N/A',
-                                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber[800]),
+                                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber[800]),
                               ),
                             ],
                           ),
                         ),
+                        if (totalRatings > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: totalSentResult.color.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: totalSentResult.color.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(totalSentResult.icon, color: totalSentResult.color, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  totalSentResult.formattedScore,
+                                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: totalSentResult.color),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -521,6 +581,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                           const SizedBox(height: 2),
                           Text('Satisfaction Score', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
                         ]),
+                        if (totalRatings > 0) ...[
+                          Container(width: 1, height: 24, color: Colors.grey.withOpacity(0.3)),
+                          Column(children: [
+                            Text(
+                              totalSentResult.formattedScore,
+                              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: totalSentResult.color),
+                            ),
+                            Text('Total Response Score', style: GoogleFonts.inter(fontSize: 11, color: Colors.grey[500])),
+                          ]),
+                        ],
                       ],
                     ),
                   ),
@@ -549,6 +619,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                               final studentName = student['name'] ?? 'Student';
                               final roomInfo = '${student['hostelBlock'] ?? ''} ${student['roomNumber'] ?? ''}'.trim();
                               final comment = fb['comment'] ?? '';
+
+                              final double? sScore = (fb['sentimentScore'] is num) ? (fb['sentimentScore'] as num).toDouble() : null;
+                              final String? sLabel = fb['sentimentLabel']?.toString();
+                              final sent = SentimentAnalyzer.analyze(comment, serverScore: sScore, serverLabel: sLabel);
 
                               return Container(
                                 padding: const EdgeInsets.all(16),
@@ -586,8 +660,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
                                         ),
                                       ],
                                     ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: sent.color.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: sent.color.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(sent.icon, color: sent.color, size: 12),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Response: ${sent.displayText}',
+                                            style: GoogleFonts.inter(color: sent.color, fontWeight: FontWeight.bold, fontSize: 10),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                     if (comment.isNotEmpty) ...[
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 8),
                                       Text(
                                         '"$comment"',
                                         style: GoogleFonts.inter(fontSize: 13, fontStyle: FontStyle.italic, color: isDark ? Colors.grey[300] : const Color(0xFF334155)),
