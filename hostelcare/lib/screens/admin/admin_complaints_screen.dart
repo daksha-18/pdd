@@ -291,6 +291,7 @@ class _AdminComplaintsScreenState extends State<AdminComplaintsScreen> {
                 final fb = c['feedback'];
                 final double? sScore = (fb['sentimentScore'] is num) ? (fb['sentimentScore'] as num).toDouble() : null;
                 final String? sLabel = fb['sentimentLabel']?.toString();
+                final int? rRating = (fb['rating'] is num) ? (fb['rating'] as num).toInt() : null;
                 final sent = SentimentAnalyzer.analyze(fb['comment']?.toString() ?? '', serverScore: sScore, serverLabel: sLabel);
 
                 return Container(

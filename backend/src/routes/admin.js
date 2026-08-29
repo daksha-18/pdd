@@ -337,6 +337,7 @@ router.get('/staff/:id/feedback', async (req, res, next) => {
           specialization: staff.specialization,
           averageRating: avgRating,
           averageSentimentScore: avgSentimentScore,
+          avgSentiment: avgSentimentScore,
           totalRatingsCount
         },
         feedbacks

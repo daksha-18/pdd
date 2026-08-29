@@ -451,7 +451,12 @@ router.put('/:id/feedback', protect, authorize('student'), async (req, res, next
 
       if (ratedComplaints.length > 0) {
         const totalRatingSum = ratedComplaints.reduce((acc, curr) => acc + (curr.feedback.rating || 0), 0);
-        const totalSentSum = ratedComplaints.reduce((acc, curr) => acc + (curr.feedback.sentimentScore || 0), 0);
+        const totalSentSum = ratedComplaints.reduce((acc, curr) => {
+          const sentScore = (curr.feedback && curr.feedback.sentimentScore !== undefined)
+            ? curr.feedback.sentimentScore
+            : analyzeSentiment((curr.feedback && curr.feedback.comment) || '').score;
+          return acc + sentScore;
+        }, 0);
         const avg = Math.round((totalRatingSum / ratedComplaints.length) * 10) / 10;
         const avgSent = Math.round((totalSentSum / ratedComplaints.length) * 100) / 100;
         await User.findByIdAndUpdate(complaint.assignedTo, {

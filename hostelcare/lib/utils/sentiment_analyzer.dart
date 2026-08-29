@@ -74,6 +74,35 @@ class SentimentAnalyzer {
     'disappointed': -3.0,
     'waste': -3.0,
     'sluggish': -3.0,
+    'like': 2.0,
+    'love': 3.0,
+    'nice': 2.0,
+    'fine': 2.0,
+    'recommend': 3.0,
+    'best': 4.0,
+    'well': 2.0,
+    'proper': 2.0,
+    'properly': 2.0,
+  };
+
+  static const Set<String> _negationWords = {
+    'not', 'no', 'never', 'neither', 'nor', 'none', 'cannot', 'without',
+    'hardly', 'scarcely', 'barely', 'lack', 'lacks', 'lacking',
+    'isnt', "isn't", 'isn',
+    'wasnt', "wasn't", 'wasn',
+    'arent', "aren't", 'aren',
+    'werent', "weren't", 'weren',
+    'dont', "don't", 'don',
+    'doesnt', "doesn't", 'doesn',
+    'didnt', "didn't", 'didn',
+    'cant', "can't",
+    'couldnt', "couldn't", 'couldn',
+    'wont', "won't", 'won',
+    'wouldnt', "wouldn't", 'wouldn',
+    'shouldnt', "shouldn't", 'shouldn',
+    'havent', "haven't", 'haven',
+    'hasnt', "hasn't", 'hasn',
+    'hadnt', "hadn't", 'hadn',
   };
 
   static const Map<String, double> _emojiWeights = {
@@ -96,10 +125,13 @@ class SentimentAnalyzer {
     '💔': -3.0,
   };
 
-  /// Analyzes text and returns structured sentiment result
+  /// Analyzes text and returns structured sentiment result based strictly on text content
   static SentimentResult analyze(String? text, {double? serverScore, String? serverLabel}) {
-    if (serverScore != null && serverLabel != null && serverLabel.isNotEmpty) {
-      return _buildResult(serverScore, serverLabel);
+    if (serverScore != null) {
+      final String label = (serverLabel != null && serverLabel.isNotEmpty)
+          ? serverLabel
+          : (serverScore > 0.05 ? 'positive' : (serverScore < -0.05 ? 'negative' : 'neutral'));
+      return _buildResult(serverScore, label);
     }
 
     if (text == null || text.trim().isEmpty) {
@@ -108,15 +140,39 @@ class SentimentAnalyzer {
 
     final rawText = text.trim();
     final lowerText = rawText.toLowerCase();
-    final RegExp wordRegExp = RegExp(r'\b[a-z]+\b');
-    final matches = wordRegExp.allMatches(lowerText).map((m) => m.group(0)!);
+    final RegExp wordRegExp = RegExp(r"\b[a-z']+\b");
+    final tokens = wordRegExp.allMatches(lowerText).map((m) => m.group(0)!).toList();
 
     double totalScore = 0.0;
     int count = 0;
 
-    for (final word in matches) {
-      if (_wordWeights.containsKey(word)) {
-        totalScore += _wordWeights[word]!;
+    for (int i = 0; i < tokens.length; i++) {
+      final rawWord = tokens[i];
+      final cleanWord = rawWord.replaceAll("'", "");
+      final targetKey = _wordWeights.containsKey(rawWord)
+          ? rawWord
+          : (_wordWeights.containsKey(cleanWord) ? cleanWord : null);
+
+      if (targetKey != null) {
+        double weight = _wordWeights[targetKey]!;
+
+        bool isNegated = false;
+        for (int lookback = 1; lookback <= 2; lookback++) {
+          if (i - lookback >= 0) {
+            final prevToken = tokens[i - lookback];
+            final prevClean = prevToken.replaceAll("'", "");
+            if (_negationWords.contains(prevToken) || _negationWords.contains(prevClean)) {
+              isNegated = true;
+              break;
+            }
+          }
+        }
+
+        if (isNegated) {
+          weight = -weight;
+        }
+
+        totalScore += weight;
         count++;
       }
     }

@@ -59,7 +59,36 @@ const customLexicon = {
   disappointed: -3,
   waste: -3,
   sluggish: -3,
+  like: 2,
+  love: 3,
+  nice: 2,
+  fine: 2,
+  recommend: 3,
+  best: 4,
+  well: 2,
+  proper: 2,
+  properly: 2,
 };
+
+const negationSet = new Set([
+  'not', 'no', 'never', 'neither', 'nor', 'none', 'cannot', 'without',
+  'hardly', 'scarcely', 'barely', 'lack', 'lacks', 'lacking',
+  'isnt', "isn't", 'isn',
+  'wasnt', "wasn't", 'wasn',
+  'arent', "aren't", 'aren',
+  'werent', "weren't", 'weren',
+  'dont', "don't", 'don',
+  'doesnt', "doesn't", 'doesn',
+  'didnt', "didn't", 'didn',
+  'cant', "can't",
+  'couldnt', "couldn't", 'couldn',
+  'wont', "won't", 'won',
+  'wouldnt', "wouldn't", 'wouldn',
+  'shouldnt', "shouldn't", 'shouldn',
+  'havent', "haven't", 'haven',
+  'hasnt', "hasn't", 'hasn',
+  'hadnt', "hadn't", 'hadn',
+]);
 
 // Emoji sentiment weights
 const emojiLexicon = {
@@ -99,8 +128,8 @@ function analyzeSentiment(text) {
   const rawText = text.trim();
   const lowerText = rawText.toLowerCase();
 
-  // Tokenize text
-  const tokens = tokenizer.tokenize(lowerText) || lowerText.split(/\s+/);
+  // Tokenize text preserving word characters and apostrophes
+  const tokens = lowerText.match(/\b[a-z']+\b/g) || tokenizer.tokenize(lowerText) || lowerText.split(/\s+/);
   
   // Base score from natural SentimentAnalyzer
   let naturalScore = 0;
@@ -110,13 +139,36 @@ function analyzeSentiment(text) {
     naturalScore = 0;
   }
 
-  // Calculate custom lexicon score
+  // Calculate custom lexicon score & count
   let customScore = 0;
   let matchesCount = 0;
+  let hasNegation = false;
 
-  tokens.forEach((token) => {
-    if (customLexicon[token] !== undefined) {
-      customScore += customLexicon[token];
+  tokens.forEach((token, index) => {
+    const cleanToken = token.replace(/'/g, '');
+    const key = customLexicon[token] !== undefined ? token : (customLexicon[cleanToken] !== undefined ? cleanToken : null);
+
+    if (key !== null) {
+      let weight = customLexicon[key];
+
+      let isNegated = false;
+      for (let lookback = 1; lookback <= 2; lookback++) {
+        if (index - lookback >= 0) {
+          const prevRaw = tokens[index - lookback];
+          const prevClean = prevRaw.replace(/'/g, '');
+          if (negationSet.has(prevRaw) || negationSet.has(prevClean)) {
+            isNegated = true;
+            hasNegation = true;
+            break;
+          }
+        }
+      }
+
+      if (isNegated) {
+        weight = -weight;
+      }
+
+      customScore += weight;
       matchesCount++;
     }
   });
@@ -129,24 +181,47 @@ function analyzeSentiment(text) {
     }
   }
 
-  // Combine natural score and custom score
-  let totalScore = naturalScore * 2 + (matchesCount > 0 ? customScore / matchesCount : 0);
-
-  // If no words matched in natural or custom, check raw text for substrings
-  if (totalScore === 0 && matchesCount === 0) {
+  // If no word/emoji tokens matched, check raw text for lexicon word substrings
+  if (matchesCount === 0) {
     for (const [word, val] of Object.entries(customLexicon)) {
       if (lowerText.includes(word)) {
-        customScore += val;
+        let weight = val;
+        if (lowerText.includes(`not ${word}`) || lowerText.includes(`no ${word}`) || lowerText.includes(`never ${word}`)) {
+          weight = -weight;
+          hasNegation = true;
+        }
+        customScore += weight;
         matchesCount++;
       }
     }
-    if (matchesCount > 0) {
-      totalScore = customScore / matchesCount;
-    }
   }
 
-  // Clamp totalScore between -1.0 and +1.0
-  let normalized = Math.max(-1.0, Math.min(1.0, Math.round(totalScore * 100) / 100));
+  if (hasNegation && naturalScore !== 0) {
+    naturalScore = -naturalScore;
+  }
+
+  let normCustom = 0;
+  if (matchesCount > 0) {
+    // Custom weights range between -4.0 and +4.0
+    normCustom = Math.max(-1.0, Math.min(1.0, (customScore / matchesCount) / 4.0));
+  }
+
+  let normNatural = 0;
+  if (naturalScore !== 0) {
+    normNatural = Math.max(-1.0, Math.min(1.0, naturalScore / 4.0));
+  }
+
+  let textScore = 0;
+  if (matchesCount > 0 && naturalScore !== 0) {
+    textScore = normCustom * 0.7 + normNatural * 0.3;
+  } else if (matchesCount > 0) {
+    textScore = normCustom;
+  } else if (naturalScore !== 0) {
+    textScore = normNatural;
+  }
+
+  // Clamp textScore between -1.0 and +1.0
+  let normalized = Math.max(-1.0, Math.min(1.0, Math.round(textScore * 100) / 100));
 
   // Determine label
   let label = 'neutral';
@@ -158,7 +233,7 @@ function analyzeSentiment(text) {
 
   return {
     score: normalized,
-    label: label,
+    label,
     normalizedScore: (normalized >= 0 ? `+${normalized.toFixed(2)}` : normalized.toFixed(2)),
   };
 }

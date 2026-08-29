@@ -483,7 +483,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen>
               final avgRating = (staffInfo['averageRating'] ?? 0.0).toDouble();
               final totalRatings = staffInfo['totalRatingsCount'] ?? feedbacks.length;
 
-              double avgSentScore = (staffInfo['averageSentimentScore'] ?? 0.0).toDouble();
+              double avgSentScore = ((staffInfo['averageSentimentScore'] ?? staffInfo['avgSentiment'] ?? 0.0) as num).toDouble();
               if (avgSentScore == 0.0 && feedbacks.isNotEmpty) {
                 double sum = 0.0;
                 for (var f in feedbacks) {

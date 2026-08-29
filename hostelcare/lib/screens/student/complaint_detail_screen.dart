@@ -13,6 +13,8 @@ class ComplaintDetailScreen extends StatefulWidget {
 }
 
 class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
+  bool _isEditingFeedback = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +32,17 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
           if (c == null) return const Center(child: Text('Not found'));
           final statusColors = {'pending': Colors.orange, 'assigned': Colors.blue, 'in_progress': Colors.indigo, 'resolved': Colors.green, 'closed': Colors.grey, 'withdrawn': Colors.grey[600]!};
           final sc = statusColors[c.status] ?? Colors.grey;
+
+          int parsedRating = 0;
+          if (c.feedback != null && c.feedback!['rating'] != null) {
+            if (c.feedback!['rating'] is num) {
+              parsedRating = (c.feedback!['rating'] as num).toInt();
+            } else {
+              parsedRating = int.tryParse(c.feedback!['rating'].toString()) ?? 0;
+            }
+          }
+          final bool hasSubmittedFeedback = parsedRating > 0;
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -52,13 +65,27 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
               ],
               const SizedBox(height: 16),
               FadeInUp(delay: const Duration(milliseconds: 400), child: _timelineSection(c)),
-              if (c.status == 'resolved' && c.feedback == null) ...[
-                const SizedBox(height: 20),
-                FadeInUp(delay: const Duration(milliseconds: 500), child: _feedbackSection(c)),
-              ],
-              if (c.feedback != null) ...[
-                const SizedBox(height: 16),
-                FadeInUp(delay: const Duration(milliseconds: 500), child: _existingFeedback(c)),
+              if (['resolved', 'closed'].contains(c.status)) ...[
+                if (!hasSubmittedFeedback || _isEditingFeedback) ...[
+                  const SizedBox(height: 20),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 500),
+                    child: _feedbackSection(
+                      c,
+                      isEditing: _isEditingFeedback,
+                      onCancel: _isEditingFeedback ? () => setState(() => _isEditingFeedback = false) : null,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 500),
+                    child: _existingFeedback(
+                      c,
+                      onEdit: () => setState(() => _isEditingFeedback = true),
+                    ),
+                  ),
+                ],
               ],
               if (c.status == 'pending' || c.status == 'assigned') ...[
                 const SizedBox(height: 24),
@@ -77,7 +104,7 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
-      color: isUpvoted ? primary.withOpacity(0.1) : null,
+      color: isUpvoted ? primary.withValues(alpha: 0.1) : null,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -118,20 +145,20 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
   Widget _statusBanner(c, Color color) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(gradient: LinearGradient(colors: [color, color.withOpacity(0.7)]), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)]), borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Text(c.categoryIcon, style: const TextStyle(fontSize: 32)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(c.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            Text(c.complaintId ?? '', style: TextStyle(color: Colors.white.withOpacity(0.8))),
+            Text(c.complaintId ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
           ])),
         ]),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
           child: Text(c.statusLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         ),
       ]),
@@ -204,11 +231,14 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
     ])));
   }
 
-  Widget _feedbackSection(c) {
-    int rating = 0;
-    final commentCtrl = TextEditingController();
+  Widget _feedbackSection(c, {bool isEditing = false, VoidCallback? onCancel}) {
+    int rating = (c.feedback != null && c.feedback['rating'] != null && (c.feedback['rating'] is num) && (c.feedback['rating'] as num) > 0)
+        ? (c.feedback['rating'] as num).toInt()
+        : 0;
+    final String initialComment = c.feedback?['comment']?.toString() ?? '';
+    final commentCtrl = TextEditingController(text: initialComment);
     final quickChips = ['Fast Repair ⚡', 'Polite Staff 😊', 'Thorough Work 👍', 'Clean Finish ✨'];
-    String currentText = '';
+    String currentText = initialComment;
 
     return StatefulBuilder(builder: (context, setSt) {
       final sentimentResult = SentimentAnalyzer.analyze(currentText);
@@ -219,7 +249,20 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Rate Repair & Resolution Quality', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isEditing ? 'Update Your Feedback' : 'Rate Repair & Resolution Quality',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (isEditing && onCancel != null)
+                    TextButton(
+                      onPressed: onCancel,
+                      child: const Text('Cancel'),
+                    ),
+                ],
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -245,8 +288,11 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
               const SizedBox(height: 8),
               TextField(
                 controller: commentCtrl,
-                maxLines: 2,
-                decoration: const InputDecoration(hintText: 'Add additional feedback notes...'),
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Add additional feedback notes...',
+                  border: OutlineInputBorder(),
+                ),
                 onChanged: (val) => setSt(() => currentText = val),
               ),
               if (currentText.trim().isNotEmpty) ...[
@@ -254,9 +300,9 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: sentimentResult.color.withOpacity(0.08),
+                    color: sentimentResult.color.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sentimentResult.color.withOpacity(0.3)),
+                    border: Border.all(color: sentimentResult.color.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
@@ -281,9 +327,19 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: rating > 0 ? () async {
-                    await context.read<ComplaintProvider>().submitFeedback(c.id, rating, commentCtrl.text);
+                    final success = await context.read<ComplaintProvider>().submitFeedback(c.id, rating, commentCtrl.text);
+                    if (success) {
+                      if (mounted && onCancel != null) {
+                        onCancel();
+                      }
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Feedback submitted successfully!'), backgroundColor: Colors.green),
+                        );
+                      }
+                    }
                   } : null,
-                  child: const Text('Submit Feedback'),
+                  child: Text(isEditing ? 'Update Feedback' : 'Submit Feedback'),
                 ),
               ),
             ],
@@ -293,7 +349,7 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
     });
   }
 
-  Widget _existingFeedback(c) {
+  Widget _existingFeedback(c, {VoidCallback? onEdit}) {
     final fb = c.feedback!;
     final double? sScore = (fb['sentimentScore'] is num) ? (fb['sentimentScore'] as num).toDouble() : null;
     final String? sLabel = fb['sentimentLabel']?.toString();
@@ -309,24 +365,34 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Your Feedback', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: sentimentResult.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: sentimentResult.color.withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(sentimentResult.icon, color: sentimentResult.color, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Response: ${sentimentResult.displayText}',
-                        style: TextStyle(color: sentimentResult.color, fontWeight: FontWeight.bold, fontSize: 11),
+                Row(
+                  children: [
+                    if (onEdit != null)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        tooltip: 'Edit Feedback',
+                        onPressed: onEdit,
                       ),
-                    ],
-                  ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: sentimentResult.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: sentimentResult.color.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(sentimentResult.icon, color: sentimentResult.color, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Response: ${sentimentResult.displayText}',
+                            style: TextStyle(color: sentimentResult.color, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -335,7 +401,14 @@ class _ComplaintDetailScreenState extends State<ComplaintDetailScreen> {
             if (fb['comment'] != null && fb['comment'].toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(fb['comment'], style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                child: Text(
+                  fb['comment'],
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[800],
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
           ],
         ),
